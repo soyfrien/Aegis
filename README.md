@@ -15,6 +15,7 @@ This README is the single source of truth for understanding, setting up, and con
    - [Setup](#setup)
    - [Running the Project](#running-the-project)
    - [Deployment](#deployment)
+   - [Share sheet, Home Screen app and Shortcuts (iPhone)](#share-sheet-home-screen-app-and-shortcuts-iphone)
 4. [How to Contribute (Quick Path)](#how-to-contribute-quick-path)
 5. [Branching Strategy](#branching-strategy)
 6. [Commit Message Conventions](#commit-message-conventions)
@@ -54,7 +55,8 @@ Aegis/
 ├── src/Aegis.Web/               # ASP.NET Core (minimal API) app
 │   ├── Program.cs               # wiring: auth, rate limiting, endpoints
 │   ├── Services/                # yt-dlp runner, job manager, OneDrive client, stats collector, validators
-│   └── wwwroot/                 # static UI: index.html, stats.html, app.js, stats.js, app.css
+│   └── wwwroot/                 # static UI: index.html, stats.html, shortcut.html, app.js, sw.js, manifest.webmanifest, icons/
+├── tools/make_icons.py          # regenerates the PWA icons (needs Pillow)
 ├── tests/Aegis.Tests/           # xUnit tests (unit + in-memory API tests)
 └── deploy/                      # systemd units, Caddyfile, install script, env example (no secrets)
 ```
@@ -93,6 +95,7 @@ cd Aegis
 dotnet restore
 
 # 3. Configure environment (never commit real secrets)
+export AEGIS_API_TOKEN="$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 40)"   # optional, see "Optional headless mode"
 export AEGIS_PASSCODE="$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 24)"   # shared passcode; remember it
 ```
 
@@ -101,6 +104,7 @@ Configuration is read from `appsettings.json` (section `Aegis`) and can be overr
 | Setting | Default | Meaning |
 |---|---|---|
 | `AEGIS_PASSCODE` | *(none, required)* | Shared passcode. If unset, nobody can log in. |
+| `AEGIS_API_TOKEN` | *(none, optional)* | Long random token (24+ chars) that lets a Shortcut call `/api/jobs` and `/api/fetch` with the `X-Aegis-Token` header. Disabled when unset. |
 | `Aegis:YtDlpPath` | `yt-dlp` | yt-dlp binary |
 | `Aegis:FfmpegPath` | *(PATH)* | optional ffmpeg location |
 | `Aegis:WorkDir` / `StateDir` | temp dir / `~/.local/share/aegis` | temp downloads / data-protection keys + OneDrive token |
@@ -170,6 +174,32 @@ Notes:
 - Only download content you have the right to download.
 
 If any step fails on a clean machine, please open an issue labeled `documentation`.
+
+### Share sheet, Home Screen app and Shortcuts (iPhone)
+
+Some iPhone apps give you a *Share* button but no way to copy a link. Aegis handles this in three layers:
+
+1. **Home Screen app (PWA).** Aegis ships a web app manifest (`/manifest.webmanifest`), icons (`/icons/`, regenerate with `python3 tools/make_icons.py`), Apple meta tags and a tiny service worker (`/sw.js`, only caches the page shell; it never touches `/api`). In Safari: *Share → Add to Home Screen*. Note that iOS keeps Safari and Home Screen apps logged in separately, so you unlock Aegis once in each.
+2. **`/share` landing route.** iOS Safari does **not** support the Web Share Target API for installed web apps (Chrome on Android does, and the manifest declares a `share_target` for it). Instead, anything can open `https://<host>/share?url=…&text=…&title=…` (or `/?url=…`). The server finds the **first http(s) link** in `url`, then `text`, then `title` (so "Look at this https://… wow" works) and redirects to `/?target=<link>&auto=1`. The page keeps the target through the login form, pre-fills the box and starts the download. Add `&auto=0` to only pre-fill. No link found → `/?shared=none` and a friendly message. The route never needs a login itself: the download is still protected by the normal auth.
+3. **iOS Shortcut.** A Shortcut with *Show in Share Sheet* turned on puts "Aegis" in every app's Share Sheet. The logged-in page **`/shortcut`** has step-by-step instructions (the address is filled in for you). In short: *Receive URLs and Text from Share Sheet → URL Encode → Text `https://<host>/share?url=` + the encoded text → Open URLs*.
+
+A `.shortcut` file is not shipped: iOS only imports Shortcuts that Apple has signed (signing requires macOS), and a prebuilt file would also have to embed the server address and, for the headless variant, a secret.
+
+#### Optional headless mode (API token)
+
+Set `AEGIS_API_TOKEN` (e.g. `head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 40`) in `/etc/aegis/aegis.env` and restart. A client may then send the header `X-Aegis-Token: <token>` instead of the login cookie, **only** to:
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/fetch` `{"url": "…"}` | Waits for the download and returns the video file itself (`Content-Disposition: attachment`). Ideal for a Shortcut: *Get Contents of URL → Save File*. |
+| `POST /api/jobs`, `GET /api/jobs/{id}`, `GET /api/jobs/{id}/file`, `DELETE /api/jobs/{id}` | The normal job API. |
+
+The token cannot reach OneDrive, stats or any other endpoint. `url` may also be pasted text; the first link in it is used. Keep the token out of git and chat; anyone holding it can download through your server, so rotate it by editing the env file and restarting.
+
+```bash
+curl -H "X-Aegis-Token: $AEGIS_API_TOKEN" -H 'Content-Type: application/json' \
+     -d '{"url":"https://example.com/video.mp4"}' -OJ https://<host>/api/fetch
+```
 
 ---
 

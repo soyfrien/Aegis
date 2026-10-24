@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <title>Aegis · Share-sheet setup</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="doc">
+    <h1>📲 Share-sheet setup</h1>
+    <p><a href="/">← Back to downloader</a></p>
+
+    <section>
+      <h2>1. Put Aegis on your Home Screen</h2>
+      <ol>
+        <li>Open this site in <b>Safari</b> (it must be Safari).</li>
+        <li>Tap the <b>Share</b> button (square with an arrow), scroll down, tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        <li>Open Aegis from the new icon. It runs full screen like an app.</li>
+      </ol>
+      <p class="muted">iPhones keep the Home Screen app and Safari logged in separately, so you unlock Aegis once in each.</p>
+    </section>
+
+    <section>
+      <h2>2. Make an “Aegis” Shortcut for the Share Sheet</h2>
+      <p>iOS does not let web apps appear in the Share Sheet by themselves, so a tiny Shortcut does it. It takes whatever you share and opens Aegis with the link already filled in.</p>
+      <ol>
+        <li>Open the <b>Shortcuts</b> app → <b>Shortcuts</b> tab → tap <b>+</b> (top right).</li>
+        <li>Tap the name at the top and choose <b>Rename</b>: <code>Aegis</code>. (Optional: <b>Choose Icon</b>.)</li>
+        <li>Open the shortcut’s settings (the <b>ⓘ</b> button, or the name → <b>Details</b>) and turn on <b>Show in Share Sheet</b>.</li>
+        <li>At the top of the shortcut the action <b>Receive … input from Share Sheet</b> appears. Tap the blue words and select <b>only URLs and Text</b>.</li>
+        <li>Tap <b>Add Action</b>, search <b>URL Encode</b>, add it, and make sure its input is <b>Shortcut Input</b>.</li>
+        <li>Add a <b>Text</b> action and type exactly this, then tap right after the <code>=</code> and insert the blue <b>URL Encoded Text</b> variable:
+          <div class="copyrow"><code id="tpl">…/share?url=</code><button type="button" class="secondary" data-copy="tpl">Copy</button></div>
+        </li>
+        <li>Add an <b>Open URLs</b> action. Its input should be the <b>Text</b> from the step before.</li>
+        <li>Tap <b>Done</b>.</li>
+      </ol>
+
+      <h3>Use it</h3>
+      <ol>
+        <li>In Safari, Facebook, YouTube or any app: tap <b>Share</b>.</li>
+        <li>Pick <b>Aegis</b> in the Share Sheet. If you don’t see it, scroll to the end of the app row → <b>More</b> / <b>Edit Actions</b>, and add <b>Aegis</b> to Favorites.</li>
+        <li>Safari opens Aegis, asks for the passcode if needed, and starts the download. Tap <b>Save to Files</b> when it is ready.</li>
+      </ol>
+      <p class="muted">Shared text like “Look at this https://… wow” also works: Aegis picks out the first web link. Add <code>&amp;auto=0</code> to the end of the address to only fill in the link and not start the download.</p>
+    </section>
+
+    <section>
+      <h2>Optional: one-tap Shortcut with no browser</h2>
+      <p>If the server admin has set an API token (<code>AEGIS_API_TOKEN</code> in <code>/etc/aegis/aegis.env</code>), the Shortcut can fetch the file by itself and save it straight to Files:</p>
+      <ol>
+        <li>Same steps 1–4 as above (name, Share Sheet, URLs and Text).</li>
+        <li>Add <b>Get Contents of URL</b>. URL: <div class="copyrow"><code id="fetch">…/api/fetch</code><button type="button" class="secondary" data-copy="fetch">Copy</button></div></li>
+        <li>Tap <b>Show More</b>: <b>Method</b> = <code>POST</code>.</li>
+        <li><b>Headers</b>: add <code>X-Aegis-Token</code> = your token, and <code>Content-Type</code> = <code>application/json</code>.</li>
+        <li><b>Request Body</b> = <b>JSON</b>: add a <b>Text</b> field named <code>url</code> with the value <b>Shortcut Input</b>.</li>
+        <li>Add <b>Save File</b> (turn <b>Ask Where to Save</b> on, or pick a Files folder).</li>
+      </ol>
+      <p class="muted">The server waits for the download, so the Shortcut may run for a minute or two on long videos. The token is stored inside the Shortcut: don’t share the Shortcut with anyone. The token only allows downloads, not settings or OneDrive.</p>
+    </section>
+  </main>
+  <script src="/shortcut.js"></script>
+</body>
+</html>

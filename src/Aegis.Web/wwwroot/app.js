@@ -21,8 +21,37 @@
     return body;
   }
 
-  function showLogin() { show($('login'), true); show($('app'), false); }
-  function showApp() { show($('login'), false); show($('app'), true); }
+  // ---- Share-sheet / deep-link handling -------------------------------------------------
+  // /share?url=… on the server redirects to /?target=<link>&auto=1. We keep that target in memory (and in the URL until it is used)
+  // so it survives the login form, then pre-fill the box and, with auto=1, start the download.
+  const params = new URLSearchParams(location.search);
+  let pending = null;
+  const sharedTarget = params.get('target');
+  if (sharedTarget && /^https?:\/\//i.test(sharedTarget)) pending = { target: sharedTarget, auto: params.get('auto') === '1' };
+  const sharedNone = params.get('shared') === 'none';
+  const next = ['/shortcut', '/stats'].includes(params.get('next')) ? params.get('next') : null; // allow-list: no open redirects
+
+  function showLogin() {
+    show($('login'), true); show($('app'), false);
+    const note = $('login-note');
+    if (pending) {
+      let host = ''; try { host = new URL(pending.target).host; } catch { /* ignore */ }
+      note.textContent = 'Unlock Aegis to download the link you shared' + (host ? ' (' + host + ')' : '') + '.';
+      show(note, true);
+    } else { show(note, false); }
+  }
+
+  function showApp() {
+    show($('login'), false); show($('app'), true);
+    if (next) { location.replace(next); return; }
+    if (sharedNone) { showError('I could not find a web link in what you shared. Copy the link and paste it below.'); }
+    if (pending) {
+      const p = pending; pending = null;
+      history.replaceState(null, '', '/');
+      $('url').value = p.target;
+      if (p.auto) $('dl-form').requestSubmit();
+    }
+  }
 
   async function init() {
     try {
@@ -135,4 +164,7 @@
   }
 
   init();
+
+  // Installable PWA (Add to Home Screen): a minimal service worker.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { /* not fatal */ });
 })();

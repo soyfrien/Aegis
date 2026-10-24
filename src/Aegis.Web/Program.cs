@@ -16,7 +16,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOptions<AegisOptions>()
     .Bind(builder.Configuration.GetSection(AegisOptions.Section))
     // AEGIS_PASSCODE comes from the environment (systemd EnvironmentFile on the VM), never from a file in the repo.
-    .PostConfigure<IConfiguration>((o, c) => o.Passcode = c["AEGIS_PASSCODE"] ?? o.Passcode);
+    .PostConfigure<IConfiguration>((o, c) =>
+    {
+        o.Passcode = c["AEGIS_PASSCODE"] ?? o.Passcode;
+        // Optional: lets an iOS Shortcut call the API headlessly with the X-Aegis-Token header.
+        o.ApiToken = c["AEGIS_API_TOKEN"] ?? o.ApiToken;
+    });
 
 builder.Services.AddSingleton(sp => new PasscodeService(sp.GetRequiredService<IOptions<AegisOptions>>().Value.Passcode));
 builder.Services.AddSingleton<IDownloader, YtDlpDownloader>();
@@ -47,8 +52,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         o.SlidingExpiration = true;
         o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
         o.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
-    });
-builder.Services.AddAuthorization();
+    })
+    .AddScheme<AuthenticationSchemeOptions, ApiTokenAuthenticationHandler>(ApiTokenDefaults.Scheme, _ => { });
+builder.Services.AddAuthorization(o => o.AddPolicy(ApiTokenDefaults.PolicyName, p => p
+    .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, ApiTokenDefaults.Scheme)
+    .RequireAuthenticatedUser()));
 
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
 {
@@ -97,10 +105,44 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
+// Share-sheet landing: /share?url=…&text=…&title=… (also /?url=… / ?text=… / ?title=…) -> /?target=<first http(s) link>&auto=1.
+// The page itself is static; the login (if needed) happens in the page, which keeps ?target= until it has been used.
+// Add auto=0 to only pre-fill the box instead of starting the download.
+app.Use(async (ctx, next) =>
+{
+    var q = ctx.Request.Query;
+    var isGet = HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method);
+    var isShare = ctx.Request.Path.Equals("/share") || ctx.Request.Path.Equals("/share/");
+    var rootWithShareParams = ctx.Request.Path.Equals("/") && (q.ContainsKey("url") || q.ContainsKey("text") || q.ContainsKey("title"));
+    if (isGet && (isShare || rootWithShareParams))
+    {
+        var link = SharedLink.Extract(q["url"].ToString(), q["text"].ToString(), q["title"].ToString());
+        ctx.Response.Headers.CacheControl = "no-store";
+        ctx.Response.Redirect(link is null
+            ? "/?shared=none"
+            : "/?target=" + Uri.EscapeDataString(link) + (q["auto"].ToString() == "0" ? "" : "&auto=1"));
+        return;
+    }
+    await next();
+});
+
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = new FileExtensionContentTypeProvider { Mappings = { [".webmanifest"] = "application/manifest+json" } },
+    OnPrepareResponse = ctx =>
+    {
+        // The service worker and manifest must always be revalidated so updates reach phones quickly.
+        var name = ctx.File.Name;
+        if (name is "sw.js" or "manifest.webmanifest") ctx.Context.Response.Headers.CacheControl = "no-cache";
+    },
+});
 // /stats is a static page; the data it shows comes from the authenticated /api/stats endpoint.
 app.MapGet("/stats", () => Results.File(Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "stats.html"), "text/html"));
+// /shortcut (instructions for the iOS Shortcut) requires login; anonymous visitors are sent to the login page and come back afterwards.
+app.MapGet("/shortcut", (HttpContext ctx) => ctx.User.Identity?.IsAuthenticated == true
+    ? Results.File(Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "shortcut.html"), "text/html")
+    : Results.Redirect("/?next=%2Fshortcut"));
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -128,25 +170,12 @@ api.MapPost("/logout", async (HttpContext ctx) =>
 
 var secured = api.MapGroup("").RequireAuthorization();
 
-secured.MapPost("/jobs", (JobRequest req, JobService jobs) =>
+// Endpoints a headless client (iOS Shortcut) may use with either the login cookie or the X-Aegis-Token header.
+var headless = api.MapGroup("").RequireAuthorization(ApiTokenDefaults.PolicyName);
+
+IResult ServeFile(Job job, JobService jobs)
 {
-    if (!UrlValidator.TryValidate(req.Url, out var uri, out var error))
-        return Results.BadRequest(new { error });
-
-    var job = jobs.Start(uri!.AbsoluteUri);
-    return job is null
-        ? Results.Json(new { error = "The server is busy. Try again in a few minutes." }, statusCode: 503)
-        : Results.Accepted($"/api/jobs/{job.Id}", job.ToView(DateTimeOffset.UtcNow, jobs.Ttl));
-});
-
-secured.MapGet("/jobs/{id}", (string id, JobService jobs) =>
-    jobs.Get(id) is { } job ? Results.Ok(job.ToView(DateTimeOffset.UtcNow, jobs.Ttl)) : Results.NotFound(new { error = "Unknown or expired job." }));
-
-secured.MapGet("/stats", (SystemStatsService stats) => Results.Ok(stats.Collect()));
-
-secured.MapGet("/jobs/{id}/file", (string id, JobService jobs) =>
-{
-    if (jobs.Get(id) is not { State: JobState.Done, FilePath: { } path, FileName: { } name } job || !File.Exists(path))
+    if (job is not { State: JobState.Done, FilePath: { } path, FileName: { } name } || !File.Exists(path))
         return Results.NotFound(new { error = "File not ready, unknown or expired." });
 
     if (!new FileExtensionContentTypeProvider().TryGetContentType(name, out var contentType))
@@ -155,9 +184,46 @@ secured.MapGet("/jobs/{id}/file", (string id, JobService jobs) =>
     // fileDownloadName makes ASP.NET emit "Content-Disposition: attachment" (with RFC 6266 filename*), so iOS Safari offers Save to Files.
     if (job.FileSize is { } size) jobs.AddBytesServed(size);
     return Results.File(path, contentType, fileDownloadName: name, enableRangeProcessing: true);
+}
+
+headless.MapPost("/jobs", (JobRequest req, JobService jobs) =>
+{
+    if (!UrlValidator.TryValidate(SharedLink.Extract(req.Url) ?? req.Url, out var uri, out var error))
+        return Results.BadRequest(new { error });
+
+    var job = jobs.Start(uri!.AbsoluteUri);
+    return job is null
+        ? Results.Json(new { error = "The server is busy. Try again in a few minutes." }, statusCode: 503)
+        : Results.Accepted($"/api/jobs/{job.Id}", job.ToView(DateTimeOffset.UtcNow, jobs.Ttl));
 });
 
-secured.MapDelete("/jobs/{id}", (string id, JobService jobs) => jobs.Remove(id) ? Results.NoContent() : Results.NotFound());
+headless.MapGet("/jobs/{id}", (string id, JobService jobs) =>
+    jobs.Get(id) is { } job ? Results.Ok(job.ToView(DateTimeOffset.UtcNow, jobs.Ttl)) : Results.NotFound(new { error = "Unknown or expired job." }));
+
+secured.MapGet("/stats", (SystemStatsService stats) => Results.Ok(stats.Collect()));
+
+headless.MapGet("/jobs/{id}/file", (string id, JobService jobs) =>
+    jobs.Get(id) is { } job ? ServeFile(job, jobs) : Results.NotFound(new { error = "File not ready, unknown or expired." }));
+
+// One call for Shortcuts: POST {"url": "..."} and the response body IS the video file (the server waits for the download to finish).
+headless.MapPost("/fetch", async (JobRequest req, JobService jobs, CancellationToken ct) =>
+{
+    if (!UrlValidator.TryValidate(SharedLink.Extract(req.Url) ?? req.Url, out var uri, out var error))
+        return Results.BadRequest(new { error });
+    var job = jobs.Start(uri!.AbsoluteUri);
+    if (job is null) return Results.Json(new { error = "The server is busy. Try again in a few minutes." }, statusCode: 503);
+
+    await jobs.WaitAsync(job, jobs.JobTimeout + TimeSpan.FromMinutes(1), ct);
+    return job.State switch
+    {
+        JobState.Done => ServeFile(job, jobs),
+        JobState.Failed => Results.Json(new { error = job.Error ?? "Download failed." }, statusCode: 502),
+        _ => Results.Json(new { error = "The download did not finish in time." }, statusCode: 504),
+    };
+});
+
+headless.MapDelete("/jobs/{id}", (string id, JobService jobs) => jobs.Remove(id) ? Results.NoContent() : Results.NotFound());
+
 
 // ---- Optional: Save to OneDrive ----
 const string NotSetUp = "OneDrive is not set up on this server (no Entra app registration / Aegis:OneDrive:ClientId configured). See the README.";

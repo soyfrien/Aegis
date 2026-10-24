@@ -5,15 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b1020">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Aegis">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
   <meta name="robots" content="noindex, nofollow">
   <title>Aegis</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="/app.css">
 </head>
 <body>
   <main>
     <h1>🛡️ Aegis</h1>
 
     <section id="login" hidden>
+      <p id="login-note" class="muted" hidden></p>
       <form id="login-form" autocomplete="on">
         <label for="passcode">Passcode</label>
         <input id="passcode" name="passcode" type="password" autocomplete="current-password" required>
@@ -44,11 +51,12 @@
 
       <p id="expires" class="muted"></p>
       <a class="footer-link" href="/stats">Server stats</a>
+      <a class="footer-link" href="/shortcut">Share-sheet setup</a>
       <button id="logout" type="button" class="link">Lock</button>
     </section>
 
     <p id="error" role="alert" hidden></p>
   </main>
-  <script src="app.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>
