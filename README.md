@@ -104,6 +104,7 @@ Configuration is read from `appsettings.json` (section `Aegis`) and can be overr
 | `Aegis:YtDlpPath` | `yt-dlp` | yt-dlp binary |
 | `Aegis:FfmpegPath` | *(PATH)* | optional ffmpeg location |
 | `Aegis:WorkDir` / `StateDir` | temp dir / `~/.local/share/aegis` | temp downloads / data-protection keys + OneDrive token |
+| `Aegis:CookiesFile` | *(none)* | optional Netscape `cookies.txt` exported from your own browser, passed to yt-dlp (`--cookies`) |
 | `Aegis:MaxConcurrentJobs` | 2 | parallel yt-dlp processes |
 | `Aegis:MaxFileSize` | `1G` | passed to `--max-filesize` |
 | `Aegis:MaxHeight` | 720 | preferred max video height |
@@ -161,11 +162,11 @@ sudo mkdir -p /etc/aegis && sudoedit /etc/aegis/aegis.env     # see deploy/aegis
 sudo bash deploy/install.sh /tmp/aegis-publish.tar.gz
 ```
 
-The VM needs `aspnetcore-runtime-8.0`, `ffmpeg`, `yt-dlp` (standalone binary at `/usr/local/bin/yt-dlp`) and `caddy`; ports 80/443 open. `deploy/install.sh` also installs a **systemd timer** (`aegis-ytdlp-update.timer`, daily) that runs `yt-dlp -U`, because sites break old yt-dlp versions constantly.
+The VM needs `aspnetcore-runtime-8.0`, `ffmpeg`, `yt-dlp` (zipapp/standalone at `/usr/local/bin/yt-dlp`), `deno` (JS runtime for YouTube) and `caddy`; ports 80/443 open. `deploy/install.sh` also installs a **systemd timer** (`aegis-ytdlp-update.timer`, daily) that runs `yt-dlp -U`, because sites break old yt-dlp versions constantly.
 
 Notes:
 - The passcode lives only in `/etc/aegis/aegis.env` on the server (mode 640). Rotate by editing the file and `systemctl restart aegis`.
-- YouTube often blocks datacenter IPs with a "confirm you're not a bot" challenge. Keep yt-dlp updated; other sites usually work. Cookies from a logged-in browser can be supplied to yt-dlp, but that is not built in.
+- YouTube blocks most datacenter IPs (including Azure's) with a "Sign in to confirm you're not a bot" challenge. Updating yt-dlp, installing a JavaScript runtime ([Deno](https://deno.com), needed by current yt-dlp for YouTube) and trying other player clients did **not** get around it from the reference VM. What can work: export cookies from a browser where you are logged in to YouTube (Netscape `cookies.txt`), put the file on the server (e.g. `/var/lib/aegis/state/cookies.txt`, readable only by `aegis-app`) and set `Aegis__CookiesFile` to it. Be aware that automated use of an account can get that account flagged. Other sites (Vimeo, direct video links, many others) work without this.
 - Only download content you have the right to download.
 
 If any step fails on a clean machine, please open an issue labeled `documentation`.

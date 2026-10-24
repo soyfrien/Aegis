@@ -19,6 +19,9 @@ public sealed class AegisOptions
     /// <summary>Directory for persistent state (data-protection keys, OneDrive token). Empty means a folder under the user profile.</summary>
     public string StateDir { get; set; } = "";
 
+    /// <summary>Optional Netscape-format cookies.txt exported from your own browser; passed to yt-dlp via --cookies (helps with YouTube bot checks).</summary>
+    public string CookiesFile { get; set; } = "";
+
     public int MaxConcurrentJobs { get; set; } = 2;
     public string MaxFileSize { get; set; } = "1G";
     public int MaxHeight { get; set; } = 720;

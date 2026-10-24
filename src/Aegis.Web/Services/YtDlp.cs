@@ -56,6 +56,11 @@ public sealed partial class YtDlpDownloader(IOptions<AegisOptions> options, ILog
             args.Add("--ffmpeg-location");
             args.Add(o.FfmpegPath);
         }
+        if (!string.IsNullOrWhiteSpace(o.CookiesFile) && File.Exists(o.CookiesFile))
+        {
+            args.Add("--cookies");
+            args.Add(o.CookiesFile);
+        }
         args.Add("--");
         args.Add(url);
         return args;

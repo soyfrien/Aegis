@@ -42,6 +42,20 @@ public class YtDlpTests
     }
 
     [Fact]
+    public void Cookies_file_is_only_added_when_it_exists()
+    {
+        Assert.DoesNotContain("--cookies", YtDlpDownloader.BuildArguments(new AegisOptions { CookiesFile = "/nonexistent/cookies.txt" }, "https://e.com", "/t"));
+        var tmp = Path.GetTempFileName();
+        try
+        {
+            var args = YtDlpDownloader.BuildArguments(new AegisOptions { CookiesFile = tmp }, "https://e.com", "/t");
+            Assert.Equal(tmp, args[args.IndexOf("--cookies") + 1]);
+            Assert.Equal("--", args[^2]);
+        }
+        finally { File.Delete(tmp); }
+    }
+
+    [Fact]
     public void Summarize_explains_bot_checks_and_truncates()
     {
         Assert.Contains("bot", YtDlpDownloader.Summarize("ERROR: [youtube] x: Sign in to confirm you're not a bot"));
