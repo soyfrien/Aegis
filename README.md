@@ -16,6 +16,7 @@ This README is the single source of truth for understanding, setting up, and con
    - [Running the Project](#running-the-project)
    - [Deployment](#deployment)
    - [Share sheet, Home Screen app and Shortcuts (iPhone)](#share-sheet-home-screen-app-and-shortcuts-iphone)
+   - [iPhone-compatible re-encoding](#iphone-compatible-re-encoding)
 4. [How to Contribute (Quick Path)](#how-to-contribute-quick-path)
 5. [Branching Strategy](#branching-strategy)
 6. [Commit Message Conventions](#commit-message-conventions)
@@ -112,6 +113,8 @@ Configuration is read from `appsettings.json` (section `Aegis`) and can be overr
 | `Aegis:MaxConcurrentJobs` | 2 | parallel yt-dlp processes |
 | `Aegis:MaxFileSize` | `1G` | passed to `--max-filesize` |
 | `Aegis:MaxHeight` | 720 | preferred max video height |
+| `Aegis:Reencode:TimeoutMinutes` | 30 | give up re-encoding after this long and keep the original file |
+| `Aegis:Reencode:Nice` | 10 | Linux niceness of ffmpeg (0 = off) so encodes don't starve the web server |
 | `Aegis:FileTtlMinutes` | 15 | how long a finished file stays on the server |
 | `Aegis:LoginAttemptsPerMinute` / `RequestsPerMinute` | 5 / 60 | per-IP rate limits |
 | `Aegis:OneDrive:ClientId` / `TenantId` / `Folder` | *(empty)* / `common` / `Aegis` | optional OneDrive feature |
@@ -199,6 +202,27 @@ The token cannot reach OneDrive, stats or any other endpoint. `url` may also be 
 ```bash
 curl -H "X-Aegis-Token: $AEGIS_API_TOKEN" -H 'Content-Type: application/json' \
      -d '{"url":"https://example.com/video.mp4"}' -OJ https://<host>/api/fetch
+```
+
+### iPhone-compatible re-encoding
+
+Some downloads (VP9, AV1, WebM, MKV, 10-bit H.264 …) will not play on an iPhone. The main page has a **Make iPhone-compatible** setting, remembered per device in `localStorage` (so it also applies when a download is started from the share sheet):
+
+| Mode | API value | What happens |
+|---|---|---|
+| Off (default) | `off` | The file is delivered as downloaded. |
+| Auto | `auto` | The file is probed with `ffprobe`. If it is already H.264 or HEVC video with AAC audio (or no audio) in an MP4/MOV, nothing is done. Otherwise the **cheapest fix** is used: just repackage into MP4 when only the container is wrong (seconds, also fixes HEVC `hev1` → `hvc1`), copy the video and encode only the audio when the video is fine, or a full re-encode. |
+| Always | `always` | Always re-encode to H.264/AAC MP4. |
+
+Full re-encodes use `ffmpeg` with `libx264` (`-preset veryfast -crf 23 -pix_fmt yuv420p -profile:v high`), AAC 160 kbps stereo and `-movflags +faststart`. Video is capped at **1080p** (never upscaled; either orientation). The job shows *Re-encoding… NN%* (parsed from `ffmpeg -progress`).
+
+Safeguards for a small VM: only **one encode runs at a time** (others wait, without blocking downloads), ffmpeg runs under `nice`, there is a timeout (`Aegis:Reencode:TimeoutMinutes`), and temp files are removed. If conversion fails or times out, you still get the **original file** and the job carries a clear `notice`. Re-encoding is slow on a 2 vCPU burstable VM: expect several minutes for a short clip, and longer than the video for long ones.
+
+Programmatic use: `POST /api/jobs` and `POST /api/fetch` accept an optional `"reencode": "off" | "auto" | "always"` (also with `X-Aegis-Token`); an unknown value returns 400. The job JSON includes `reencode` (requested mode), `reencodeResult` (`none`, `skipped`, `remuxed`, `audio`, `reencoded`, `failed`) and `notice`. `/stats` shows how many re-encodes ran, failed and how long they took.
+
+```bash
+curl -H "X-Aegis-Token: $AEGIS_API_TOKEN" -H 'Content-Type: application/json' \
+     -d '{"url":"https://example.com/video.webm","reencode":"auto"}' -OJ https://<host>/api/fetch
 ```
 
 ---

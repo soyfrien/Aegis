@@ -14,6 +14,7 @@ public sealed class Job
     public required string Id { get; init; }
     public required string Url { get; init; }
     public required string Directory { get; init; }
+    public ReencodeMode Reencode { get; init; } = ReencodeMode.Off;
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 
     public JobState State { get; private set; } = JobState.Queued;
@@ -24,6 +25,11 @@ public sealed class Job
     public long? FileSize { get; private set; }
     public string? Error { get; private set; }
     public DateTimeOffset? FinishedAt { get; private set; }
+
+    /// <summary>What the re-encode step did: "none" (not requested), "skipped", "remuxed", "audio", "reencoded" or "failed".</summary>
+    public string ReencodeResult { get; private set; } = "none";
+    /// <summary>A short human message about the re-encode step (success, skip or fallback), shown next to the download.</summary>
+    public string? Notice { get; private set; }
 
     public UploadState OneDrive { get; private set; } = UploadState.None;
     public string? OneDriveMessage { get; private set; }
@@ -39,6 +45,8 @@ public sealed class Job
             if (message is not null) Message = message;
         }
     }
+
+    public void SetReencodeResult(string result, string? notice) { lock (_lock) { ReencodeResult = result; Notice = notice; } }
 
     public void SetMessage(string message) { lock (_lock) Message = message; }
 
@@ -95,7 +103,8 @@ public sealed class Job
         {
             DateTimeOffset? expires = FinishedAt?.Add(ttl);
             return new JobView(Id, State.ToString().ToLowerInvariant(), Math.Round(Percent, 1), Message, FileName, FileSize,
-                Error, expires, OneDrive.ToString().ToLowerInvariant(), OneDriveMessage, OneDriveUrl);
+                Error, expires, OneDrive.ToString().ToLowerInvariant(), OneDriveMessage, OneDriveUrl,
+                Reencode.ToString().ToLowerInvariant(), ReencodeResult, Notice);
         }
     }
 }
@@ -112,4 +121,7 @@ public sealed record JobView(
     DateTimeOffset? ExpiresAt,
     [property: JsonPropertyName("oneDrive")] string OneDrive,
     string? OneDriveMessage,
-    string? OneDriveUrl);
+    string? OneDriveUrl,
+    string Reencode,
+    string ReencodeResult,
+    string? Notice);

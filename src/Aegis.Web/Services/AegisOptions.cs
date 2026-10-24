@@ -35,6 +35,8 @@ public sealed class AegisOptions
 
     public OneDriveOptions OneDrive { get; set; } = new();
 
+    public ReencodeOptions Reencode { get; set; } = new();
+
     public string ResolvedWorkDir => string.IsNullOrWhiteSpace(WorkDir)
         ? Path.Combine(Path.GetTempPath(), "aegis-work")
         : WorkDir;
@@ -56,4 +58,14 @@ public sealed class OneDriveOptions
     public string Folder { get; set; } = "Aegis";
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ClientId);
+}
+
+/// <summary>Settings for the optional "make it iPhone-compatible" step (ffmpeg libx264/AAC re-encode).</summary>
+public sealed class ReencodeOptions
+{
+    /// <summary>Give up (and keep the original file) after this many minutes of encoding.</summary>
+    public int TimeoutMinutes { get; set; } = 30;
+
+    /// <summary>Linux niceness for ffmpeg (0 = off). Keeps encodes from starving the web server on a small VM.</summary>
+    public int Nice { get; set; } = 10;
 }

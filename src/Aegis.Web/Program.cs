@@ -25,6 +25,7 @@ builder.Services.AddOptions<AegisOptions>()
 
 builder.Services.AddSingleton(sp => new PasscodeService(sp.GetRequiredService<IOptions<AegisOptions>>().Value.Passcode));
 builder.Services.AddSingleton<IDownloader, YtDlpDownloader>();
+builder.Services.AddSingleton<IReencoder, FfmpegReencoder>();
 builder.Services.AddSingleton<JobService>();
 builder.Services.AddHostedService<CleanupService>();
 builder.Services.AddSingleton<OneDriveService>();
@@ -173,6 +174,8 @@ var secured = api.MapGroup("").RequireAuthorization();
 // Endpoints a headless client (iOS Shortcut) may use with either the login cookie or the X-Aegis-Token header.
 var headless = api.MapGroup("").RequireAuthorization(ApiTokenDefaults.PolicyName);
 
+const string ReencodeModeError = "reencode must be one of: off, auto, always.";
+
 IResult ServeFile(Job job, JobService jobs)
 {
     if (job is not { State: JobState.Done, FilePath: { } path, FileName: { } name } || !File.Exists(path))
@@ -190,8 +193,9 @@ headless.MapPost("/jobs", (JobRequest req, JobService jobs) =>
 {
     if (!UrlValidator.TryValidate(SharedLink.Extract(req.Url) ?? req.Url, out var uri, out var error))
         return Results.BadRequest(new { error });
+    if (!ReencodeModes.TryParse(req.Reencode, out var mode)) return Results.BadRequest(new { error = ReencodeModeError });
 
-    var job = jobs.Start(uri!.AbsoluteUri);
+    var job = jobs.Start(uri!.AbsoluteUri, mode);
     return job is null
         ? Results.Json(new { error = "The server is busy. Try again in a few minutes." }, statusCode: 503)
         : Results.Accepted($"/api/jobs/{job.Id}", job.ToView(DateTimeOffset.UtcNow, jobs.Ttl));
@@ -210,10 +214,11 @@ headless.MapPost("/fetch", async (JobRequest req, JobService jobs, CancellationT
 {
     if (!UrlValidator.TryValidate(SharedLink.Extract(req.Url) ?? req.Url, out var uri, out var error))
         return Results.BadRequest(new { error });
-    var job = jobs.Start(uri!.AbsoluteUri);
+    if (!ReencodeModes.TryParse(req.Reencode, out var mode)) return Results.BadRequest(new { error = ReencodeModeError });
+    var job = jobs.Start(uri!.AbsoluteUri, mode);
     if (job is null) return Results.Json(new { error = "The server is busy. Try again in a few minutes." }, statusCode: 503);
 
-    await jobs.WaitAsync(job, jobs.JobTimeout + TimeSpan.FromMinutes(1), ct);
+    await jobs.WaitAsync(job, jobs.MaxJobDuration + TimeSpan.FromMinutes(1), ct);
     return job.State switch
     {
         JobState.Done => ServeFile(job, jobs),
@@ -274,7 +279,8 @@ app.Run();
 
 public sealed record LoginRequest(string? Passcode);
 
-public sealed record JobRequest(string? Url);
+/// <param name="Reencode">Optional: "off" (default), "auto" (only when the file isn't iPhone-compatible) or "always" (H.264/AAC MP4).</param>
+public sealed record JobRequest(string? Url, string? Reencode = null);
 
 // Exposed for WebApplicationFactory in the test project.
 public partial class Program;
