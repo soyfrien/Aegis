@@ -17,6 +17,7 @@ This README is the single source of truth for understanding, setting up, and con
    - [Deployment](#deployment)
    - [Share sheet, Home Screen app and Shortcuts (iPhone)](#share-sheet-home-screen-app-and-shortcuts-iphone)
    - [iPhone-compatible re-encoding](#iphone-compatible-re-encoding)
+   - [Site logins (cookies): Instagram, Facebook, X, YouTube](#site-logins-cookies-instagram-facebook-x-youtube)
 4. [How to Contribute (Quick Path)](#how-to-contribute-quick-path)
 5. [Branching Strategy](#branching-strategy)
 6. [Commit Message Conventions](#commit-message-conventions)
@@ -55,8 +56,8 @@ Aegis/
 ├── Aegis.sln
 ├── src/Aegis.Web/               # ASP.NET Core (minimal API) app
 │   ├── Program.cs               # wiring: auth, rate limiting, endpoints
-│   ├── Services/                # yt-dlp runner, job manager, OneDrive client, stats collector, validators
-│   └── wwwroot/                 # static UI: index.html, stats.html, shortcut.html, app.js, sw.js, manifest.webmanifest, icons/
+│   ├── Services/                # yt-dlp runner, job manager, cookie store, OneDrive client, stats collector, validators
+│   └── wwwroot/                 # static UI: index.html, stats.html, shortcut.html, settings.html, app.js, sw.js, manifest.webmanifest, icons/
 ├── tools/make_icons.py          # regenerates the PWA icons (needs Pillow)
 ├── tests/Aegis.Tests/           # xUnit tests (unit + in-memory API tests)
 └── deploy/                      # systemd units, Caddyfile, install script, env example (no secrets)
@@ -109,7 +110,7 @@ Configuration is read from `appsettings.json` (section `Aegis`) and can be overr
 | `Aegis:YtDlpPath` | `yt-dlp` | yt-dlp binary |
 | `Aegis:FfmpegPath` | *(PATH)* | optional ffmpeg location |
 | `Aegis:WorkDir` / `StateDir` | temp dir / `~/.local/share/aegis` | temp downloads / data-protection keys + OneDrive token |
-| `Aegis:CookiesFile` | *(none)* | optional Netscape `cookies.txt` exported from your own browser, passed to yt-dlp (`--cookies`) |
+| `Aegis:CookiesFile` | *(none)* | legacy/optional Netscape `cookies.txt` on the server, used only until cookies are saved on the [Settings page](#site-logins-cookies-instagram-facebook-x-youtube) (which supersedes it). yt-dlp only ever receives the cookies for the site being downloaded |
 | `Aegis:MaxConcurrentJobs` | 2 | parallel yt-dlp processes |
 | `Aegis:MaxFileSize` | `1G` | passed to `--max-filesize` |
 | `Aegis:MaxHeight` | 720 | preferred max video height |
@@ -174,7 +175,7 @@ The VM needs `aspnetcore-runtime-8.0`, `ffmpeg`, `yt-dlp` (zipapp/standalone at 
 
 Notes:
 - The passcode lives only in `/etc/aegis/aegis.env` on the server (mode 640). Rotate by editing the file and `systemctl restart aegis`.
-- YouTube blocks most datacenter IPs (including Azure's) with a "Sign in to confirm you're not a bot" challenge. Updating yt-dlp, installing a JavaScript runtime ([Deno](https://deno.com), needed by current yt-dlp for YouTube) and trying other player clients did **not** get around it from the reference VM. What can work: export cookies from a browser where you are logged in to YouTube (Netscape `cookies.txt`), put the file on the server (e.g. `/var/lib/aegis/state/cookies.txt`, readable only by `aegis-app`) and set `Aegis__CookiesFile` to it. Be aware that automated use of an account can get that account flagged. Other sites (Vimeo, direct video links, many others) work without this.
+- YouTube blocks most datacenter IPs (including Azure's) with a "Sign in to confirm you're not a bot" challenge. Updating yt-dlp, installing a JavaScript runtime ([Deno](https://deno.com), needed by current yt-dlp for YouTube) and trying other player clients did **not** get around it from the reference VM. What can work: export cookies from a browser where you are logged in to YouTube (Netscape `cookies.txt`), save it on the Aegis **Settings** page (see [Site logins](#site-logins-cookies-instagram-facebook-x-youtube)). Be aware that automated use of an account can get that account flagged. Other sites (Vimeo, direct video links, many others) work without this.
 - Only download content you have the right to download.
 
 If any step fails on a clean machine, please open an issue labeled `documentation`.
@@ -225,6 +226,39 @@ Programmatic use: `POST /api/jobs` and `POST /api/fetch` accept an optional `"re
 curl -H "X-Aegis-Token: $AEGIS_API_TOKEN" -H 'Content-Type: application/json' \
      -d '{"url":"https://example.com/video.webm","reencode":"auto"}' -OJ https://<host>/api/fetch
 ```
+
+### Site logins (cookies): Instagram, Facebook, X, YouTube
+
+yt-dlp covers many sites, but some only hand videos to a logged-in browser. Checked from the reference Azure VM with yt-dlp 2026.10.21 and **no cookies**:
+
+| Site | Without cookies | Needs cookies |
+|---|---|---|
+| Instagram reels and posts (public accounts) | ✅ worked | stories (always), private accounts, anything Instagram rate-limits ("login required") |
+| Facebook (public video pages) | ✅ worked for public pages; some URLs fail with "Cannot parse data" | private/friends-only videos, stories |
+| X / Twitter | ✅ public broadcasts (`/i/broadcasts`) worked; tweets with videos normally work | NSFW/sensitive tweets, protected accounts |
+| YouTube | ❌ "Sign in to confirm you're not a bot" (Azure's IPs are blocked) | cookies can help, but see the warning below |
+| Vimeo, direct video links, many others | ✅ | rarely |
+
+When yt-dlp reports "login required", "this content is unreachable", an empty media response, a rate limit, or "Sign in to confirm …", Aegis shows a short explanation with a link to **Settings** (`/settings`, login required, linked from the main page).
+
+**Settings → Site logins** lets you paste or upload a Netscape-format `cookies.txt`, shows which sites/domains are covered, how many cookies and when they were last saved (never names or values), replaces one site at a time, and removes one site or everything. Uploading cookies for a site replaces only that site's cookies, unless you tick *Replace everything*.
+
+How to get the file (a **desktop** browser is required; iPhone Safari cannot export cookies):
+
+1. On a Mac/PC, log in to the site. For YouTube, do it in a private/incognito window, export, then close the window without logging out.
+2. Install the open-source **Get cookies.txt LOCALLY** extension (Chrome/Edge or Firefox).
+3. Open the site, click the extension, choose the **Netscape** format and export/copy the cookies for that site only.
+4. Get the text onto your phone (iCloud Drive, OneDrive, AirDrop, email) and choose the file or paste it on the Settings page.
+
+API (login cookie only; the headless `X-Aegis-Token` is deliberately **not** accepted): `GET /api/cookies` (summary), `PUT /api/cookies` with `{"content": "<cookies.txt text>", "replaceAll": false}`, `DELETE /api/cookies` or `DELETE /api/cookies?site=instagram` (`youtube`, `facebook`, `x`, `instagram`, or a domain). Uploads over 1 MB, more than 4000 cookies, or text that is not a valid cookies.txt are rejected with a 400 that never repeats the content.
+
+**Security notes**
+
+- Cookies are as powerful as a password for that account. Use a throwaway account for Instagram/Facebook/X where possible, never your main Google account for YouTube, and delete the cookies when you no longer need them. Instagram, Facebook, X and YouTube may flag or lock accounts used this way.
+- Storage: `<Aegis:StateDir>/cookies.txt` (on the VM `/var/lib/aegis/state/cookies.txt`), created mode `600` owned by the app user inside the `0700` state directory, outside the web root, written atomically and normalised on every save. It is never logged, never returned by the API and never committed (the repo is public).
+- For every download, only the cookies that belong to the target site (and sites that share its login, e.g. `fb.watch` ↔ `facebook.com`, `youtu.be` ↔ `youtube.com`, `t.co` ↔ `x.com`) are copied into a private per-job file that is passed to yt-dlp with `--cookies` and deleted afterwards. If nothing matches, `--cookies` is not used, so YouTube cookies are never sent to other sites. The setting `Aegis:CookiesFile` still works as a read-only fallback until you save cookies on the Settings page; it is filtered the same way.
+- Instagram/Facebook **story** links always need cookies: without them Aegis stops immediately with an explanation instead of asking yt-dlp.
+- Cookies expire. If a site starts failing again ("saved cookies" message), export and save a fresh file.
 
 ---
 
