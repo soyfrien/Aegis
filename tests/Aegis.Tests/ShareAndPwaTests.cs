@@ -128,8 +128,31 @@ public class ShareAndPwaTests : IClassFixture<ShareAndPwaTests.Factory>
     public async Task Service_worker_cache_version_was_bumped_so_installed_app_refreshes()
     {
         var sw = await (await NoRedirectClient().GetAsync("/sw.js")).Content.ReadAsStringAsync();
-        Assert.Contains("aegis-shell-v3", sw);
-        Assert.DoesNotContain("aegis-shell-v2", sw);
+        Assert.Contains("aegis-shell-v4", sw);
+        Assert.DoesNotContain("aegis-shell-v3", sw);
+    }
+
+    [Fact]
+    public async Task External_links_open_in_a_new_tab_with_noopener_noreferrer_and_internal_links_do_not()
+    {
+        var c = NoRedirectClient();
+        var js = await (await c.GetAsync("/app.js")).Content.ReadAsStringAsync();
+        Assert.Contains("a.target = '_blank'", js);
+        Assert.Contains("'noopener noreferrer'", js);
+        Assert.Contains("externalLink(d.verificationUri", js);   // device-code sign-in link
+        Assert.Contains("externalLink(job.oneDriveUrl", js);      // saved-file link
+        Assert.DoesNotContain("a.rel = 'noopener';", js);          // old weaker attribute is gone
+        Assert.Contains("origin !== location.origin", js);        // only cross-origin links are touched
+
+        foreach (var page in new[] { "/", "/stats.html", "/shortcut.html" })
+        {
+            var html = await (await c.GetAsync(page)).Content.ReadAsStringAsync();
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(html, "<a\\b[^>]*>"))
+            {
+                // Static anchors in the shipped pages are all same-site: they must NOT open new windows.
+                Assert.DoesNotContain("target=", m.Value);
+            }
+        }
     }
 
     // ---------- /share ----------

@@ -5,6 +5,27 @@
   const show = (el, on) => { el.hidden = !on; };
   const showError = (msg) => { $('error').textContent = msg || ''; show($('error'), !!msg); };
 
+  // External links (Microsoft device sign-in, the saved OneDrive file, ...) open in a new tab/window so this page,
+  // its job and the device-code polling keep running. Same-site links (stats, shortcut) are left alone.
+  // In the iPhone Home Screen app, iOS shows external target=_blank links in its own browser sheet.
+  const EXTERNAL_REL = 'noopener noreferrer';
+  const isExternal = (a) => { try { return new URL(a.href, location.href).origin !== location.origin; } catch { return false; } };
+  function markExternal(a) { a.target = '_blank'; a.rel = EXTERNAL_REL; return a; }
+  function externalLink(href, text) {
+    const a = document.createElement('a');
+    let ok = false;
+    try { ok = ['https:', 'http:'].includes(new URL(href, location.href).protocol); } catch { /* bad url */ }
+    if (ok) a.href = href;
+    a.textContent = text;
+    return markExternal(a);
+  }
+  // Safety net for any other external link, including ones added later (never touches same-origin links).
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (a && isExternal(a)) markExternal(a);
+  }, true);
+  document.querySelectorAll('a[href]').forEach((a) => { if (isExternal(a)) markExternal(a); });
+
   async function api(path, opts = {}) {
     const res = await fetch('/api' + path, {
       credentials: 'same-origin',
@@ -149,7 +170,7 @@
     if (job.oneDrive === 'uploading') { msg.textContent = job.oneDriveMessage; $('od-btn').disabled = true; pollSoon(); }
     else if (job.oneDrive === 'done') {
       msg.innerHTML = '';
-      const a = document.createElement('a'); a.href = job.oneDriveUrl || '#'; a.textContent = 'Saved to OneDrive – open'; a.target = '_blank'; a.rel = 'noopener';
+      const a = job.oneDriveUrl ? externalLink(job.oneDriveUrl, 'Saved to OneDrive – open (new tab)') : document.createTextNode('Saved to OneDrive.');
       msg.append(a); $('od-btn').disabled = false;
     } else if (job.oneDrive === 'failed') { msg.textContent = job.oneDriveMessage; $('od-btn').disabled = false; }
   }
@@ -173,8 +194,8 @@
     const box = $('od-device'); box.textContent = '';
     const p = document.createElement('div');
     p.append('Open ');
-    const a = document.createElement('a'); a.href = d.verificationUri; a.textContent = d.verificationUri; a.target = '_blank'; a.rel = 'noopener';
-    p.append(a, ' and enter code ');
+    const a = externalLink(d.verificationUri, d.verificationUri);
+    p.append(a, ' (opens in a new tab) and enter code ');
     const c = document.createElement('code'); c.textContent = d.userCode;
     p.append(c, '. Then tap “Save to OneDrive” again.');
     box.append(p); show(box, true);
