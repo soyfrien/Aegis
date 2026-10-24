@@ -1,0 +1,37 @@
+[Unit]
+Description=Aegis video downloader (ASP.NET Core)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aegis-app
+Group=aegis-app
+WorkingDirectory=/opt/aegis
+ExecStart=/usr/bin/dotnet /opt/aegis/Aegis.Web.dll
+Restart=always
+RestartSec=5
+# Secrets (AEGIS_PASSCODE, optional OneDrive client id) live only here, outside the repo.
+EnvironmentFile=/etc/aegis/aegis.env
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000
+Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+Environment=HOME=/var/lib/aegis/home
+Environment=XDG_CACHE_HOME=/var/lib/aegis/home/.cache
+Environment=Aegis__WorkDir=/var/lib/aegis/work
+Environment=Aegis__StateDir=/var/lib/aegis/state
+Environment=Aegis__YtDlpPath=/usr/local/bin/yt-dlp
+StateDirectory=aegis aegis/home aegis/state aegis/work
+StateDirectoryMode=0700
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aegis
+# 1 GB VM: keep the app (and its yt-dlp/ffmpeg children) from starving sshd/caddy.
+MemoryHigh=700M
+MemoryMax=850M
+
+[Install]
+WantedBy=multi-user.target
