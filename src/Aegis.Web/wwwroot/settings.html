@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <title>Aegis · Settings</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main class="doc">
+    <h1>⚙️ Settings</h1>
+    <p><a href="/">← Back to downloader</a></p>
+    <p id="error" role="alert" hidden></p>
+    <div id="login-hint" hidden>Please <a href="/?next=%2Fsettings">unlock Aegis</a> first.</div>
+
+    <div id="content" hidden>
+      <section>
+        <h2>Site logins (cookies)</h2>
+        <p class="muted">Instagram, Facebook, X and sometimes YouTube only give videos to a logged-in browser. If you save a <code>cookies.txt</code> exported from your own logged-in browser, Aegis uses it to download as you.
+          Cookies are stored on this server only, are never shown here, and are sent only to the site they belong to.</p>
+        <div id="status"></div>
+        <ul id="sites" class="sitelist"></ul>
+        <button id="delete-all" type="button" class="secondary" hidden>Delete all saved cookies</button>
+        <p id="server-note" class="muted" hidden>These cookies come from a file configured on the server (<code>Aegis__CookiesFile</code>). Saving new cookies here replaces that file's use; to remove it, edit the server configuration.</p>
+      </section>
+
+      <section>
+        <h2>Add or replace cookies</h2>
+        <p class="muted">Paste the text of a Netscape-format <code>cookies.txt</code>, or choose the file. Cookies for the sites in it replace the ones saved for those sites; other sites are kept.</p>
+        <label for="cookie-text">cookies.txt contents</label>
+        <textarea id="cookie-text" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="# Netscape HTTP Cookie File&#10;.instagram.com&#9;TRUE&#9;/&#9;TRUE&#9;1893456000&#9;name&#9;value"></textarea>
+        <label for="cookie-file" class="filelabel">…or choose a file</label>
+        <input id="cookie-file" type="file" accept=".txt,text/plain">
+        <label class="check"><input id="replace-all" type="checkbox"> Replace everything (remove cookies for all other sites)</label>
+        <button id="save-cookies" type="button">Save cookies</button>
+        <p id="save-msg" class="muted" role="status"></p>
+      </section>
+
+      <section>
+        <h2>How to get a cookies.txt</h2>
+        <p class="warn"><strong>Honest limitation:</strong> iPhone Safari cannot export cookies. You need a desktop browser (a Mac or PC, e.g. Chrome, Edge or Firefox) where you are already logged in to the site. Once you have the file you can finish everything here from your iPhone.</p>
+        <ol>
+          <li>On the desktop, log in to the site (Instagram, Facebook, X…). For YouTube, log in inside a private/incognito window, export, then close that window without logging out.</li>
+          <li>Install the open-source extension <strong>Get cookies.txt LOCALLY</strong> (Chrome/Edge Web Store or Firefox Add-ons).</li>
+          <li>Open the site's page, click the extension, choose the <strong>Netscape</strong> format and export (or copy) the cookies for <em>that site only</em>.</li>
+          <li>Get the text to your iPhone: save the file to iCloud Drive or OneDrive, AirDrop it, or email it to yourself, then choose it above. Or copy the text and paste it into the box above.</li>
+          <li>Tap <strong>Save cookies</strong>, then go back and try the link again.</li>
+        </ol>
+        <p class="muted">If you can't use a desktop yourself, ask someone with a computer to do steps 1–4 with <em>your</em> login, or skip Instagram stories and private posts: public reels, posts, Facebook videos and X videos usually work without any cookies.</p>
+      </section>
+
+      <section>
+        <h2>Please read: risks</h2>
+        <ul>
+          <li><strong>Cookies are the same as being logged in.</strong> Anyone with this file can act as that account. Only save cookies on a server you trust, and delete them when you are done.</li>
+          <li>Instagram, Facebook, X and especially <strong>YouTube may flag or temporarily lock accounts</strong> that download automatically. Where you can, use a throwaway account for Instagram, Facebook and X, and do not use your main Google account for YouTube.</li>
+          <li>Cookies expire or stop working when you log out, change your password, or the site rotates the session. If downloads start failing again, export and save fresh cookies.</li>
+          <li>Instagram and Facebook <strong>stories always need cookies</strong>; they cannot be downloaded anonymously.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+  <script src="settings.js"></script>
+</body>
+</html>

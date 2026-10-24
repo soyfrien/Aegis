@@ -63,12 +63,22 @@
 
       <p id="notice" class="muted" hidden></p>
       <p id="expires" class="muted"></p>
+      <a class="footer-link" href="/settings">Settings (site logins / cookies)</a>
       <a class="footer-link" href="/stats">Server stats</a>
       <a class="footer-link" href="/shortcut">Share-sheet setup</a>
       <button id="logout" type="button" class="link">Lock</button>
     </section>
 
     <p id="error" role="alert" hidden></p>
+
+    <div id="help" hidden>
+      <p id="help-lead"></p>
+      <ul>
+        <li>Cookies come from a logged-in <strong>desktop</strong> browser (Mac/PC), exported with the “Get cookies.txt LOCALLY” extension. iPhone Safari can't export them, so you'll need a computer once; after that you can paste or upload the file here on your iPhone.</li>
+        <li>Cookies give access to that account, and Instagram, Facebook, X and YouTube may flag accounts used this way. Use a throwaway account where you can, and never your main Google account for YouTube.</li>
+      </ul>
+      <a class="button" href="/settings">Open Settings to add cookies</a>
+    </div>
   </main>
   <script src="/app.js"></script>
 </body>

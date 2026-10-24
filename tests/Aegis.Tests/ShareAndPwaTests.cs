@@ -128,7 +128,7 @@ public class ShareAndPwaTests : IClassFixture<ShareAndPwaTests.Factory>
     public async Task Service_worker_cache_version_was_bumped_so_installed_app_refreshes()
     {
         var sw = await (await NoRedirectClient().GetAsync("/sw.js")).Content.ReadAsStringAsync();
-        Assert.Contains("aegis-shell-v6", sw);
+        Assert.Contains("aegis-shell-v7", sw);
         Assert.DoesNotContain("aegis-shell-v3", sw);
     }
 
@@ -144,7 +144,7 @@ public class ShareAndPwaTests : IClassFixture<ShareAndPwaTests.Factory>
         Assert.DoesNotContain("a.rel = 'noopener';", js);          // old weaker attribute is gone
         Assert.Contains("origin !== location.origin", js);        // only cross-origin links are touched
 
-        foreach (var page in new[] { "/", "/stats.html", "/shortcut.html" })
+        foreach (var page in new[] { "/", "/stats.html", "/shortcut.html", "/settings.html" })
         {
             var html = await (await c.GetAsync(page)).Content.ReadAsStringAsync();
             foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(html, "<a\\b[^>]*>"))

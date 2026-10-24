@@ -3,7 +3,17 @@
   let jobId = null, pollTimer = null, oneDrive = { configured: false, connected: false };
 
   const show = (el, on) => { el.hidden = !on; };
-  const showError = (msg) => { $('error').textContent = msg || ''; show($('error'), !!msg); };
+  const showError = (msg, code) => {
+    $('error').textContent = msg || ''; show($('error'), !!msg);
+    // Login/cookie problems get a friendly help box that points at the Settings page.
+    const help = $('help');
+    if (msg && (code === 'login_required' || code === 'rate_limited')) {
+      $('help-lead').textContent = code === 'rate_limited'
+        ? 'The site may be rate-limiting this server. Waiting a few minutes helps; logged-in cookies (below) can help too.'
+        : 'This link needs a logged-in session. Saving cookies from your own logged-in browser lets Aegis download it:';
+      show(help, true);
+    } else { show(help, false); }
+  };
 
   // External links (Microsoft device sign-in, the saved OneDrive file, ...) open in a new tab/window so this page,
   // its job and the device-code polling keep running. Same-site links (stats, shortcut) are left alone.
@@ -61,7 +71,7 @@
   const sharedTarget = params.get('target');
   if (sharedTarget && /^https?:\/\//i.test(sharedTarget)) pending = { target: sharedTarget, auto: params.get('auto') === '1' };
   const sharedNone = params.get('shared') === 'none';
-  const next = ['/shortcut', '/stats'].includes(params.get('next')) ? params.get('next') : null; // allow-list: no open redirects
+  const next = ['/shortcut', '/stats', '/settings'].includes(params.get('next')) ? params.get('next') : null; // allow-list: no open redirects
 
   function showLogin() {
     show($('login'), true); show($('app'), false);
@@ -151,7 +161,7 @@
       $('status-text').textContent = `${job.message}… ${job.percent ? job.percent.toFixed(0) + '%' : ''}`;
     } else if (job.state === 'failed') {
       $('status-text').textContent = 'Failed';
-      showError(job.error || 'Download failed.');
+      showError(job.error || 'Download failed.', job.errorCode);
       $('dl-btn').disabled = false;
     } else if (job.state === 'done') {
       $('dl-btn').disabled = false;
