@@ -72,4 +72,10 @@ public sealed class ReencodeOptions
 
     /// <summary>Linux niceness for ffmpeg (0 = off). Keeps encodes from starving the web server on a small VM.</summary>
     public int Nice { get; set; } = 10;
+
+    /// <summary>
+    /// libx264 preset for full re-encodes: ultrafast, superfast (default), veryfast, faster, fast, medium, slow, slower or veryslow.
+    /// Faster presets finish sooner on a small VM but make bigger files at the same crf 23. Unknown values fall back to superfast.
+    /// </summary>
+    public string Preset { get; set; } = "superfast";
 }

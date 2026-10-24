@@ -114,6 +114,7 @@ Configuration is read from `appsettings.json` (section `Aegis`) and can be overr
 | `Aegis:MaxFileSize` | `1G` | passed to `--max-filesize` |
 | `Aegis:MaxHeight` | 720 | preferred max video height |
 | `Aegis:Reencode:TimeoutMinutes` | 30 | give up re-encoding after this long and keep the original file |
+| `Aegis:Reencode:Preset` | `superfast` | libx264 preset for full re-encodes (`ultrafast`…`veryslow`). Faster = quicker but bigger files at the same quality (crf 23); unknown values fall back to `superfast` |
 | `Aegis:Reencode:Nice` | 10 | Linux niceness of ffmpeg (0 = off) so encodes don't starve the web server |
 | `Aegis:FileTtlMinutes` | 15 | how long a finished file stays on the server |
 | `Aegis:LoginAttemptsPerMinute` / `RequestsPerMinute` | 5 / 60 | per-IP rate limits |
@@ -214,7 +215,7 @@ Some downloads (VP9, AV1, WebM, MKV, 10-bit H.264 …) will not play on an iPhon
 | Auto | `auto` | The file is probed with `ffprobe`. If it is already H.264 or HEVC video with AAC audio (or no audio) in an MP4/MOV, nothing is done. Otherwise the **cheapest fix** is used: just repackage into MP4 when only the container is wrong (seconds, also fixes HEVC `hev1` → `hvc1`), copy the video and encode only the audio when the video is fine, or a full re-encode. |
 | Always | `always` | Always re-encode to H.264/AAC MP4. |
 
-Full re-encodes use `ffmpeg` with `libx264` (`-preset veryfast -crf 23 -pix_fmt yuv420p -profile:v high`), AAC 160 kbps stereo and `-movflags +faststart`. Video is capped at **1080p** (never upscaled; either orientation). The job shows *Re-encoding… NN%* (parsed from `ffmpeg -progress`).
+Full re-encodes use `ffmpeg` with `libx264` (`-preset superfast -crf 23 -pix_fmt yuv420p -profile:v high`), AAC 160 kbps stereo and `-movflags +faststart`. Video is capped at **1080p** (never upscaled; either orientation). The preset is configurable with `Aegis:Reencode:Preset` (default `superfast`: fast on a small VM, files somewhat larger than with `veryfast`). The job shows *Re-encoding… NN%* (parsed from `ffmpeg -progress`).
 
 Safeguards for a small VM: only **one encode runs at a time** (others wait, without blocking downloads), ffmpeg runs under `nice`, there is a timeout (`Aegis:Reencode:TimeoutMinutes`), and temp files are removed. If conversion fails or times out, you still get the **original file** and the job carries a clear `notice`. Re-encoding is slow on a 2 vCPU burstable VM: expect several minutes for a short clip, and longer than the video for long ones.
 

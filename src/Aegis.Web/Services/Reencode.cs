@@ -129,8 +129,19 @@ public sealed class FfmpegReencoder(IOptions<AegisOptions> options, ILogger<Ffmp
     /// <summary>iOS only plays HEVC in MP4 when the sample entry is "hvc1" (not "hev1").</summary>
     public static bool NeedsHvc1Tag(MediaInfo info) => info.VideoCodec == "hevc" && !string.Equals(info.VideoTag, "hvc1", StringComparison.OrdinalIgnoreCase);
 
+    public const string DefaultPreset = "superfast";
+
+    private static readonly string[] KnownPresets = ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"];
+
+    /// <summary>Maps a configured libx264 preset to a known one (case-insensitive); blank or unknown values become <see cref="DefaultPreset"/>.</summary>
+    public static string NormalizePreset(string? preset)
+    {
+        var p = preset?.Trim().ToLowerInvariant();
+        return p is not null && Array.IndexOf(KnownPresets, p) >= 0 ? p : DefaultPreset;
+    }
+
     /// <summary>The ffmpeg arguments for an action (everything after the program name).</summary>
-    public static List<string> BuildArguments(ReencodeAction action, string input, string output, bool hvc1Tag = false, int threads = 2)
+    public static List<string> BuildArguments(ReencodeAction action, string input, string output, bool hvc1Tag = false, int threads = 2, string? preset = null)
     {
         if (action == ReencodeAction.None) throw new ArgumentException("Nothing to build for ReencodeAction.None", nameof(action));
         var a = new List<string>
@@ -150,7 +161,7 @@ public sealed class FfmpegReencoder(IOptions<AegisOptions> options, ILogger<Ffmp
                 break;
             default:
                 a.AddRange(["-vf", ScaleFilter + ",format=yuv420p"]);
-                a.AddRange(["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-profile:v", "high", "-pix_fmt", "yuv420p",
+                a.AddRange(["-c:v", "libx264", "-preset", NormalizePreset(preset), "-crf", "23", "-profile:v", "high", "-pix_fmt", "yuv420p",
                             "-threads", threads.ToString(CultureInfo.InvariantCulture)]);
                 a.AddRange(AudioArgs());
                 break;
@@ -217,7 +228,9 @@ public sealed class FfmpegReencoder(IOptions<AegisOptions> options, ILogger<Ffmp
 
         try
         {
-            await RunFfmpegAsync(o, BuildArguments(action, inputPath, temp, info is not null && NeedsHvc1Tag(info), Math.Min(2, Environment.ProcessorCount)),
+            var preset = NormalizePreset(o.Reencode.Preset);
+            if (action == ReencodeAction.Transcode) logger.LogInformation("Re-encoding {File} with libx264 preset {Preset}, crf 23", Path.GetFileName(inputPath), preset);
+            await RunFfmpegAsync(o, BuildArguments(action, inputPath, temp, info is not null && NeedsHvc1Tag(info), Math.Min(2, Environment.ProcessorCount), preset),
                 info?.DurationSeconds, progress, ct);
             if (!File.Exists(temp) || new FileInfo(temp).Length < 1024) throw new ReencodeException("ffmpeg produced no usable output.");
 

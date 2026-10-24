@@ -106,12 +106,12 @@ public class ReencodeProbeAndCommandTests
     public void Garbage_probe_output_gives_null() => Assert.Null(FfmpegReencoder.ParseProbe("not json"));
 
     [Fact]
-    public void Transcode_arguments_use_libx264_veryfast_crf23_yuv420p_faststart_aac_and_cap_1080p()
+    public void Transcode_arguments_use_libx264_superfast_crf23_yuv420p_faststart_aac_and_cap_1080p()
     {
         var a = FfmpegReencoder.BuildArguments(ReencodeAction.Transcode, "/w/in.webm", "/w/out.tmp");
         string After(string flag) => a[a.IndexOf(flag) + 1];
         Assert.Equal("libx264", After("-c:v"));
-        Assert.Equal("veryfast", After("-preset"));
+        Assert.Equal("superfast", After("-preset"));
         Assert.Equal("23", After("-crf"));
         Assert.Equal("yuv420p", After("-pix_fmt"));
         Assert.Equal("aac", After("-c:a"));
@@ -125,6 +125,21 @@ public class ReencodeProbeAndCommandTests
         Assert.Equal("/w/out.tmp", a[^1]);
         Assert.Contains("-nostdin", a);
         Assert.DoesNotContain("-tag:v", a);
+    }
+
+    [Theory]
+    [InlineData("veryfast", "veryfast")]
+    [InlineData(" Ultrafast ", "ultrafast")]
+    [InlineData("medium", "medium")]
+    [InlineData(null, "superfast")]
+    [InlineData("", "superfast")]
+    [InlineData("bogus; rm -rf", "superfast")]
+    public void Preset_is_configurable_validated_and_defaults_to_superfast(string? configured, string expected)
+    {
+        var a = FfmpegReencoder.BuildArguments(ReencodeAction.Transcode, "in.webm", "out.tmp", preset: configured);
+        Assert.Equal(expected, a[a.IndexOf("-preset") + 1]);
+        Assert.Equal("23", a[a.IndexOf("-crf") + 1]);
+        Assert.Equal("superfast", new ReencodeOptions().Preset);
     }
 
     [Fact]
