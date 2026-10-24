@@ -1,6 +1,6 @@
 // Minimal service worker: makes Aegis installable and lets the app shell open offline.
 // It never touches /api, /share, or anything that is not a plain GET, so downloads and logins always hit the server.
-const CACHE = 'aegis-shell-v4';
+const CACHE = 'aegis-shell-v5';
 const SHELL = ['/', '/app.css', '/app.js', '/icons/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
