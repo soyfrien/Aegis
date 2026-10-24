@@ -24,6 +24,7 @@ builder.Services.AddOptions<AegisOptions>()
     });
 
 builder.Services.AddSingleton(sp => new PasscodeService(sp.GetRequiredService<IOptions<AegisOptions>>().Value.Passcode));
+builder.Services.AddSingleton<CookieStore>();
 builder.Services.AddSingleton<IDownloader, YtDlpDownloader>();
 builder.Services.AddSingleton<IReencoder, FfmpegReencoder>();
 builder.Services.AddSingleton<JobService>();
@@ -144,6 +145,10 @@ app.MapGet("/stats", () => Results.File(Path.Combine(app.Environment.WebRootPath
 app.MapGet("/shortcut", (HttpContext ctx) => ctx.User.Identity?.IsAuthenticated == true
     ? Results.File(Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "shortcut.html"), "text/html")
     : Results.Redirect("/?next=%2Fshortcut"));
+// /settings (cookies for sites that need a login) requires login too.
+app.MapGet("/settings", (HttpContext ctx) => ctx.User.Identity?.IsAuthenticated == true
+    ? Results.File(Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "settings.html"), "text/html")
+    : Results.Redirect("/?next=%2Fsettings"));
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -203,6 +208,34 @@ headless.MapPost("/jobs", (JobRequest req, JobService jobs) =>
 
 headless.MapGet("/jobs/{id}", (string id, JobService jobs) =>
     jobs.Get(id) is { } job ? Results.Ok(job.ToView(DateTimeOffset.UtcNow, jobs.Ttl)) : Results.NotFound(new { error = "Unknown or expired job." }));
+
+// ---- Cookies (Netscape cookies.txt) for sites that need a logged-in session. Cookie contents are never returned or logged. ----
+// Only the login cookie may manage them (not the headless API token).
+secured.MapGet("/cookies", (HttpContext ctx, CookieStore store) =>
+{
+    ctx.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(store.GetInfo());
+});
+
+secured.MapPut("/cookies", async (HttpContext ctx, CookieStore store) =>
+{
+    ctx.Response.Headers.CacheControl = "no-store";
+    var limit = ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+    if (limit is { IsReadOnly: false }) limit.MaxRequestBodySize = CookieStore.MaxBytes * 2L + 4096;
+    CookieUpload? body;
+    try { body = await ctx.Request.ReadFromJsonAsync<CookieUpload>(); }
+    catch (Exception ex) when (ex is System.Text.Json.JsonException or BadHttpRequestException or InvalidOperationException)
+    { return Results.BadRequest(new { error = "That upload was not understood or is too large (limit 1 MB)." }); }
+    try { return Results.Ok(store.Save(body?.Content, body?.ReplaceAll == true).Info); }
+    catch (CookieFormatException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+secured.MapDelete("/cookies", (HttpContext ctx, CookieStore store, string? site) =>
+{
+    ctx.Response.Headers.CacheControl = "no-store";
+    var info = store.Delete(site);
+    return Results.Ok(info);
+});
 
 secured.MapGet("/stats", (SystemStatsService stats) => Results.Ok(stats.Collect()));
 
@@ -278,6 +311,10 @@ secured.MapPost("/jobs/{id}/onedrive", (string id, JobService jobs, OneDriveServ
 app.Run();
 
 public sealed record LoginRequest(string? Passcode);
+
+/// <param name="Content">The text of a Netscape-format cookies.txt.</param>
+/// <param name="ReplaceAll">false (default): replace cookies only for the sites in the upload; true: discard all other stored cookies.</param>
+public sealed record CookieUpload(string? Content, bool ReplaceAll = false);
 
 /// <param name="Reencode">Optional: "off" (default), "auto" (only when the file isn't iPhone-compatible) or "always" (H.264/AAC MP4).</param>
 public sealed record JobRequest(string? Url, string? Reencode = null);

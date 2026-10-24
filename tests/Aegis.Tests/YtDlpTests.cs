@@ -42,17 +42,14 @@ public class YtDlpTests
     }
 
     [Fact]
-    public void Cookies_file_is_only_added_when_it_exists()
+    public void Cookies_argument_is_only_added_when_a_per_site_cookie_file_is_given()
     {
-        Assert.DoesNotContain("--cookies", YtDlpDownloader.BuildArguments(new AegisOptions { CookiesFile = "/nonexistent/cookies.txt" }, "https://e.com", "/t"));
-        var tmp = Path.GetTempFileName();
-        try
-        {
-            var args = YtDlpDownloader.BuildArguments(new AegisOptions { CookiesFile = tmp }, "https://e.com", "/t");
-            Assert.Equal(tmp, args[args.IndexOf("--cookies") + 1]);
-            Assert.Equal("--", args[^2]);
-        }
-        finally { File.Delete(tmp); }
+        // The legacy Aegis:CookiesFile setting is never passed straight through any more: the store filters it per site first.
+        Assert.DoesNotContain("--cookies", YtDlpDownloader.BuildArguments(new AegisOptions { CookiesFile = "/some/cookies.txt" }, "https://e.com", "/t"));
+        var args = YtDlpDownloader.BuildArguments(new AegisOptions(), "https://e.com", "/t", "/work/.cookies/job.jar");
+        Assert.Equal("/work/.cookies/job.jar", args[args.IndexOf("--cookies") + 1]);
+        Assert.Equal("--", args[^2]);
+        Assert.Equal("https://e.com", args[^1]);
     }
 
     [Fact]
@@ -61,5 +58,33 @@ public class YtDlpTests
         Assert.Contains("bot", YtDlpDownloader.Summarize("ERROR: [youtube] x: Sign in to confirm you're not a bot"));
         Assert.Equal("Download failed.", YtDlpDownloader.Summarize(""));
         Assert.True(YtDlpDownloader.Summarize(new string('x', 1000)).Length <= 301);
+    }
+
+    [Theory]
+    [InlineData("ERROR: [instagram:story] 4015100916210158930: This content is unreachable. Use --cookies-from-browser or --cookies for the authentication.", "login_required")]
+    [InlineData("ERROR: [Instagram] abc: Requested content is not available, rate-limit reached or login required. Use --cookies", "login_required")]
+    [InlineData("ERROR: [Instagram] abc: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in.", "login_required")]
+    [InlineData("ERROR: [facebook] 1: You must log in to continue. Use --cookies-from-browser", "login_required")]
+    [InlineData("ERROR: [twitter] 1: NSFW tweet requires authentication", "login_required")]
+    [InlineData("ERROR: [youtube] x: Sign in to confirm you're not a bot", "login_required")]
+    [InlineData("ERROR: [twitter] 1: HTTP Error 429: Too Many Requests", "rate_limited")]
+    [InlineData("ERROR: Unsupported URL: https://example.com/", "unsupported")]
+    [InlineData("ERROR: [generic] something else broke", null)]
+    [InlineData("", null)]
+    public void Classify_recognises_login_rate_limit_and_unsupported(string stderr, string? expected)
+    {
+        Assert.Equal(expected, YtDlpDownloader.Classify(stderr));
+    }
+
+    [Fact]
+    public void Login_messages_point_to_settings_and_mention_whether_cookies_were_used()
+    {
+        const string err = "ERROR: [instagram:story] 1: This content is unreachable. Use --cookies-from-browser or --cookies for the authentication.";
+        var without = YtDlpDownloader.Summarize(err, "www.instagram.com", cookiesUsed: false);
+        Assert.Contains("Instagram", without);
+        Assert.Contains("Settings", without);
+        var with = YtDlpDownloader.Summarize(err, "www.instagram.com", cookiesUsed: true);
+        Assert.Contains("saved cookies", with);
+        Assert.NotEqual(without, with);
     }
 }
