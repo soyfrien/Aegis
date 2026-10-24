@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Aegis · Stats</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main>
+    <h1>📊 Aegis stats</h1>
+    <p><a href="/">← Back to downloader</a></p>
+    <p id="error" role="alert" hidden></p>
+    <div id="login-hint" hidden>Please <a href="/">unlock Aegis</a> first.</div>
+    <div id="content" hidden>
+      <section><h2>Server</h2><dl id="server"></dl></section>
+      <section><h2>Resources</h2><dl id="resources"></dl></section>
+      <section><h2>Software</h2><dl id="software"></dl></section>
+      <section><h2>Downloads</h2><dl id="downloads"></dl>
+        <h3>Recent</h3><ul id="recent"></ul>
+      </section>
+      <p id="updated" class="muted"></p>
+    </div>
+  </main>
+  <script src="stats.js"></script>
+</body>
+</html>
