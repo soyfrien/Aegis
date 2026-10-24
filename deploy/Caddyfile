@@ -1,0 +1,13 @@
+# Caddy obtains and renews the Let's Encrypt certificate automatically.
+aegis-lw.southcentralus.cloudapp.azure.com {
+	reverse_proxy 127.0.0.1:5000 {
+		flush_interval -1
+		transport http {
+			response_header_timeout 30m
+		}
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}

@@ -1,0 +1,31 @@
+:root { color-scheme: dark; --bg:#0b1020; --card:#151b30; --fg:#e8ecf8; --muted:#8c96b5; --accent:#4f8cff; --err:#ff6b6b; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.4 -apple-system, system-ui, "Segoe UI", sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+main { max-width: 520px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 1.6rem; margin: 8px 0 20px; }
+section { background: var(--card); border-radius: 14px; padding: 16px; }
+label { display:block; margin-bottom:6px; color:var(--muted); font-size:.9rem; }
+input { width:100%; padding:14px; font-size:16px; border-radius:10px; border:1px solid #2b3556; background:#0e1427; color:var(--fg); }
+button, .button { display:block; width:100%; margin-top:12px; padding:14px; font-size:17px; font-weight:600; text-align:center;
+  border:0; border-radius:10px; background:var(--accent); color:#fff; text-decoration:none; }
+button:disabled { opacity:.5; }
+button.secondary { background:#2b3556; }
+button.link { background:none; color:var(--muted); font-weight:400; font-size:.9rem; margin-top:16px; }
+progress { width:100%; height:12px; margin-top:8px; }
+#status, #result { margin-top:16px; }
+.muted { color:var(--muted); font-size:.85rem; margin-top:6px; word-break:break-all; }
+#error { color:var(--err); margin-top:16px; }
+#od-device { margin-top:10px; padding:10px; border-radius:10px; background:#0e1427; }
+#od-device code { font-size:1.2rem; letter-spacing:.1em; }
+a { color: var(--accent); }
+section + section { margin-top: 14px; }
+h2 { font-size: 1.05rem; margin: 0 0 8px; }
+h3 { font-size: .95rem; margin: 14px 0 6px; color: var(--muted); }
+dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; }
+dt { color: var(--muted); }
+dd { margin: 0; text-align: right; word-break: break-word; }
+ul#recent { list-style: none; margin: 0; padding: 0; }
+ul#recent li { padding: 8px 0; border-top: 1px solid #2b3556; font-size: .9rem; }
+.ok { color: #5ad18f; } .bad { color: var(--err); }
+.footer-link { display:block; text-align:center; margin-top:14px; font-size:.9rem; }

@@ -1,6 +1,6 @@
 # Aegis
 
-> **TODO:** One-sentence description of what Aegis is and who it is for.
+> **Aegis** is a small, passcode-protected .NET 8 web app that wraps [yt-dlp](https://github.com/yt-dlp/yt-dlp) so you can paste a video link (YouTube, Facebook, …) into a mobile-friendly page, e.g. on an iPhone in Safari, and save the file to *Files* (or OneDrive).
 
 This README is the single source of truth for understanding, setting up, and contributing to Aegis. If you read it top to bottom, you should be able to make your first contribution without asking anyone. If something here is unclear or out of date, that is a bug: please open an issue or a PR to fix it.
 
@@ -14,6 +14,7 @@ This README is the single source of truth for understanding, setting up, and con
    - [Prerequisites](#prerequisites)
    - [Setup](#setup)
    - [Running the Project](#running-the-project)
+   - [Deployment](#deployment)
 4. [How to Contribute (Quick Path)](#how-to-contribute-quick-path)
 5. [Branching Strategy](#branching-strategy)
 6. [Commit Message Conventions](#commit-message-conventions)
@@ -33,29 +34,32 @@ This README is the single source of truth for understanding, setting up, and con
 
 ## Project Overview
 
-> **TODO:** Fill in once the project's scope is defined.
-
-- **What it does:** TODO
-- **Why it exists / problem it solves:** TODO
-- **Who uses it:** TODO
-- **Current status:** Early setup. No application code has been committed yet.
-- **Key concepts / glossary:** TODO (define any domain terms a newcomer will encounter).
+- **What it does:** a single-page UI where you paste a URL and press **Download**. The server runs `yt-dlp` (+ `ffmpeg` for merging), shows job progress, then streams the finished MP4 back with `Content-Disposition: attachment` so iOS Safari offers *Save to Files*. An optional **Save to OneDrive** button uploads the same file through Microsoft Graph. A `/stats` page shows VM health and download statistics.
+- **Why it exists / problem it solves:** iOS Safari cannot run yt-dlp; a tiny private server can.
+- **Who uses it:** the owner and whoever they share the passcode with. It is *not* a public service.
+- **Current status:** v0.1: working end to end; deployed on a single small Azure VM behind Caddy (automatic HTTPS).
+- **Key concepts / glossary:**
+  - **Job**: one download. Created by `POST /api/jobs`, polled via `GET /api/jobs/{id}`, fetched via `GET /api/jobs/{id}/file`.
+  - **Passcode**: one shared secret from the `AEGIS_PASSCODE` environment variable; exchanging it at `/api/login` yields a cookie.
+  - **TTL**: finished files are deleted from the server after `Aegis:FileTtlMinutes` (default 15) or on `DELETE /api/jobs/{id}`.
 
 ---
 
 ## Repository Structure
 
-> **TODO:** Replace this placeholder with the real layout as code is added. Keep it updated whenever top-level folders change.
-
 ```text
 Aegis/
-├── README.md        # This file: overview + contributing guide
-├── TODO/            # Source code location (TBD)
-├── TODO/            # Tests location (TBD)
-└── TODO/            # Docs, scripts, config (TBD)
+├── README.md                    # This file: overview + contributing guide
+├── Aegis.sln
+├── src/Aegis.Web/               # ASP.NET Core (minimal API) app
+│   ├── Program.cs               # wiring: auth, rate limiting, endpoints
+│   ├── Services/                # yt-dlp runner, job manager, OneDrive client, stats collector, validators
+│   └── wwwroot/                 # static UI: index.html, stats.html, app.js, stats.js, app.css
+├── tests/Aegis.Tests/           # xUnit tests (unit + in-memory API tests)
+└── deploy/                      # systemd units, Caddyfile, install script, env example (no secrets)
 ```
 
-For each directory, add a one-line description of what belongs there and what does not.
+Source code goes in `src/`, tests in `tests/`, and anything about running on a server in `deploy/`.
 
 ---
 
@@ -63,43 +67,107 @@ For each directory, add a one-line description of what belongs there and what do
 
 ### Prerequisites
 
-> **TODO:** List exact tools and minimum versions once the tech stack is chosen.
+**Stack:** C# / .NET 8 (ASP.NET Core minimal APIs), xUnit, vanilla HTML/CSS/JS front end (no build step), yt-dlp + ffmpeg, Caddy + systemd for deployment.
 
-At minimum you will need:
+You will need:
 
 - [Git](https://git-scm.com/) installed and configured with your name and email:
   ```bash
   git config --global user.name "Your Name"
   git config --global user.email "you@example.com"
   ```
-- Access to this private repository (ask the maintainer to add you as a collaborator).
-- An SSH key or personal access token set up with GitHub.
-- TODO: language runtime / SDK and version
-- TODO: package manager
-- TODO: any other services (databases, containers, etc.)
+- The repository is public: `git clone https://github.com/soyfrien/Aegis.git`.
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (8.0.x)
+- NuGet (bundled with the SDK); no other package manager
+- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp#installation) and [`ffmpeg`](https://ffmpeg.org/) on `PATH` (only needed to actually download; tests do not need them)
+- No database: job state is in memory and files are temporary
 
 ### Setup
 
 ```bash
 # 1. Clone the repository
-git clone git@github.com:soyfrien/Aegis.git
+git clone https://github.com/soyfrien/Aegis.git
 cd Aegis
 
 # 2. Install dependencies
-# TODO: add the install command
+dotnet restore
 
-# 3. Configure environment
-# TODO: e.g. copy an example env file and fill in values.
-# Never commit real secrets.
+# 3. Configure environment (never commit real secrets)
+export AEGIS_PASSCODE="$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 24)"   # shared passcode; remember it
 ```
+
+Configuration is read from `appsettings.json` (section `Aegis`) and can be overridden with environment variables using `__` as separator, e.g. `Aegis__YtDlpPath=/usr/local/bin/yt-dlp`.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `AEGIS_PASSCODE` | *(none, required)* | Shared passcode. If unset, nobody can log in. |
+| `Aegis:YtDlpPath` | `yt-dlp` | yt-dlp binary |
+| `Aegis:FfmpegPath` | *(PATH)* | optional ffmpeg location |
+| `Aegis:WorkDir` / `StateDir` | temp dir / `~/.local/share/aegis` | temp downloads / data-protection keys + OneDrive token |
+| `Aegis:CookiesFile` | *(none)* | optional Netscape `cookies.txt` exported from your own browser, passed to yt-dlp (`--cookies`) |
+| `Aegis:MaxConcurrentJobs` | 2 | parallel yt-dlp processes |
+| `Aegis:MaxFileSize` | `1G` | passed to `--max-filesize` |
+| `Aegis:MaxHeight` | 720 | preferred max video height |
+| `Aegis:FileTtlMinutes` | 15 | how long a finished file stays on the server |
+| `Aegis:LoginAttemptsPerMinute` / `RequestsPerMinute` | 5 / 60 | per-IP rate limits |
+| `Aegis:OneDrive:ClientId` / `TenantId` / `Folder` | *(empty)* / `common` / `Aegis` | optional OneDrive feature |
+
+#### Optional: "Save to OneDrive"
+
+Without configuration the button just explains that OneDrive is not set up. To enable it, register a **public-client** app in Microsoft Entra ID and set its client id:
+
+```bash
+az ad app create --display-name Aegis --sign-in-audience AzureADandPersonalMicrosoftAccount \
+  --is-fallback-public-client true --public-client-redirect-uris http://localhost
+# add the delegated Microsoft Graph permission Files.ReadWrite (and offline_access) in the portal if prompted, then:
+export Aegis__OneDrive__ClientId=<appId from the command above>
+```
+
+Aegis uses the OAuth **device-code flow**: tap *Save to OneDrive*, open the shown Microsoft link, enter the code, then tap the button again. The refresh token is stored encrypted (ASP.NET data protection) in `Aegis:StateDir`. Files go to the `Aegis` folder in your OneDrive using a resumable Graph upload.
 
 ### Running the Project
 
 ```bash
-# TODO: command to run locally
-# TODO: command to run tests
-# TODO: command to run the linter/formatter
+# run locally (http://localhost:5000)
+export AEGIS_PASSCODE=...        # see Setup
+dotnet run --project src/Aegis.Web --urls http://localhost:5000
+
+# run tests
+dotnet test
+
+# format check (the .NET SDK formatter)
+dotnet format --verify-no-changes
 ```
+
+Open the page, enter the passcode, paste a URL, press **Download**, then **Save to Files**. Server stats live at `/stats` (JSON: `/api/stats`).
+
+Quick check with curl:
+
+```bash
+curl -c jar -H 'Content-Type: application/json' -d "{\"passcode\":\"$AEGIS_PASSCODE\"}" http://localhost:5000/api/login
+curl -b jar -H 'Content-Type: application/json' -d '{"url":"https://www.youtube.com/watch?v=jNQXAC9IVRw"}' http://localhost:5000/api/jobs
+curl -b jar http://localhost:5000/api/jobs/<id>                       # poll until "state":"done"
+curl -b jar -OJ http://localhost:5000/api/jobs/<id>/file               # saves with the server's filename
+```
+
+### Deployment
+
+Aegis runs as a systemd service (`deploy/aegis.service`, user `aegis-app`) listening on `127.0.0.1:5000`, behind **Caddy** (`deploy/Caddyfile`) which terminates HTTPS with an automatic Let's Encrypt certificate. The reference deployment is an Azure B1s-class VM (1 GB RAM), so **publish on a bigger machine and copy the result** rather than building on the VM:
+
+```bash
+dotnet publish src/Aegis.Web -c Release -o publish --no-self-contained
+tar -czf aegis-publish.tar.gz -C publish .
+# copy aegis-publish.tar.gz and the deploy/ folder to the VM, then on the VM (as root):
+sudo mkdir -p /etc/aegis && sudoedit /etc/aegis/aegis.env     # see deploy/aegis.env.example; contains AEGIS_PASSCODE
+sudo bash deploy/install.sh /tmp/aegis-publish.tar.gz
+```
+
+The VM needs `aspnetcore-runtime-8.0`, `ffmpeg`, `yt-dlp` (zipapp/standalone at `/usr/local/bin/yt-dlp`), `deno` (JS runtime for YouTube) and `caddy`; ports 80/443 open. `deploy/install.sh` also installs a **systemd timer** (`aegis-ytdlp-update.timer`, daily) that runs `yt-dlp -U`, because sites break old yt-dlp versions constantly.
+
+Notes:
+- The passcode lives only in `/etc/aegis/aegis.env` on the server (mode 640). Rotate by editing the file and `systemctl restart aegis`.
+- YouTube blocks most datacenter IPs (including Azure's) with a "Sign in to confirm you're not a bot" challenge. Updating yt-dlp, installing a JavaScript runtime ([Deno](https://deno.com), needed by current yt-dlp for YouTube) and trying other player clients did **not** get around it from the reference VM. What can work: export cookies from a browser where you are logged in to YouTube (Netscape `cookies.txt`), put the file on the server (e.g. `/var/lib/aegis/state/cookies.txt`, readable only by `aegis-app`) and set `Aegis__CookiesFile` to it. Be aware that automated use of an account can get that account flagged. Other sites (Vimeo, direct video links, many others) work without this.
+- Only download content you have the right to download.
 
 If any step fails on a clean machine, please open an issue labeled `documentation`.
 
@@ -238,13 +306,13 @@ Authors should self-review against this list before requesting review; reviewers
 
 ## Code Style and Linting
 
-> **TODO:** Name the formatter and linter and link their configs once chosen.
+Formatting is enforced with the .NET SDK's `dotnet format` (rules from `.editorconfig` defaults).
 
 General principles until tooling is in place:
 
 - **Consistency wins:** match the style of surrounding code.
 - **Automate it:** formatting should be done by a tool, not debated in review.
-- Run the formatter and linter before every commit. TODO: commands.
+- Run `dotnet format` before every commit.
 - Consider pre-commit hooks so checks run automatically. TODO: setup instructions.
 - Prefer small functions, descriptive names, and explicit error handling.
 - Keep comments focused on *why*, not *what*.
@@ -254,7 +322,7 @@ General principles until tooling is in place:
 
 ## Testing Expectations
 
-> **TODO:** Name the test framework and how to run it.
+Tests use **xUnit** (`tests/Aegis.Tests`), including in-memory API tests via `WebApplicationFactory`. They never call the network or yt-dlp (a fake downloader is injected).
 
 - Every bug fix includes a test that fails without the fix.
 - Every new feature includes tests for its main paths and important edge cases.
@@ -264,8 +332,8 @@ General principles until tooling is in place:
 - Coverage target: TODO (do not decrease coverage in a PR).
 
 ```bash
-# TODO: run all tests
-# TODO: run a single test file
+dotnet test                                        # all tests
+dotnet test --filter FullyQualifiedName~ApiTests   # one test class
 ```
 
 ---
@@ -350,7 +418,7 @@ Pre-1.0 (`0.y.z`) versions may change more freely while the project stabilizes.
 3. Update the changelog (TODO: `CHANGELOG.md`, following [Keep a Changelog](https://keepachangelog.com/)).
 4. Tag the release: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`.
 5. Publish a GitHub Release with the changelog notes.
-6. TODO: any build/publish/deploy steps.
+6. Publish and deploy as described in [Deployment](#deployment).
 
 ---
 
@@ -380,4 +448,4 @@ When asking for help, include what you tried, what you expected, and what happen
 
 ## License
 
-TODO: choose and add a license. Until then, this is a private repository and all rights are reserved by the owner.
+TODO: choose and add a license. Until then, all rights are reserved by the owner.

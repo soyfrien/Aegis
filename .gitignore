@@ -1,0 +1,12 @@
+bin/
+obj/
+publish/
+*.user
+.vs/
+.idea/
+TestResults/
+# Never commit secrets
+*.env
+.env*
+!deploy/aegis.env.example
+appsettings.*.local.json
