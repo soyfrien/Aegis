@@ -118,7 +118,7 @@ public class UrlNormalizeApiTests : IClassFixture<UrlNormalizeApiTests.Factory>
             req.Headers.Add("X-Aegis-Token", Token);
             Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(req)).StatusCode);
         });
-        Assert.Equal("https://cdn.example.com/a.mp4?token=keep", url);
+        Assert.Equal("https://cdn.example.com/a.mp4", url);
     }
 
     [Fact]

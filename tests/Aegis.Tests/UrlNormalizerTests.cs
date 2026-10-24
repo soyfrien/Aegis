@@ -60,12 +60,16 @@ public class UrlNormalizerTests
     public void Keeps_only_the_query_keys_the_host_needs(string input, string expected) => Assert.Equal(expected, Clean(input));
 
     [Theory]
-    // Direct file links: signed params stay, known tracking params go.
+    // Direct file/stream links lose their whole query and fragment too (signed CDN links will no longer work).
     [InlineData("https://cdn.example.com/clip.mp4?utm_source=x", "https://cdn.example.com/clip.mp4")]
     [InlineData("https://cdn.example.com/clip.mp4?utm_source=x&fbclid=abc", "https://cdn.example.com/clip.mp4")]
-    [InlineData("https://cdn.example.com/clip.mp4?token=abc&expires=123&utm_medium=y", "https://cdn.example.com/clip.mp4?token=abc&expires=123")]
-    [InlineData("https://cdn.example.com/stream/master.m3u8?sig=AbC%3D&gclid=1#t=3", "https://cdn.example.com/stream/master.m3u8?sig=AbC%3D")]
-    public void Direct_media_links_keep_signed_params(string input, string expected) => Assert.Equal(expected, Clean(input));
+    [InlineData("https://cdn.example.com/clip.mp4?token=abc&expires=123&utm_medium=y", "https://cdn.example.com/clip.mp4")]
+    [InlineData("https://cdn.example.com/clip.mp4?utm_source=x&token=abc#t=1", "https://cdn.example.com/clip.mp4")]
+    [InlineData("https://cdn.example.com/stream/master.m3u8?sig=AbC%3D&gclid=1#t=3", "https://cdn.example.com/stream/master.m3u8")]
+    [InlineData("https://cdn.example.com/a/manifest.mpd?token=1", "https://cdn.example.com/a/manifest.mpd")]
+    [InlineData("https://cdn.example.com/a/song.mp3?x=1", "https://cdn.example.com/a/song.mp3")]
+    [InlineData("https://cdn.example.com/a/clip.webm?x=1", "https://cdn.example.com/a/clip.webm")]
+    public void Direct_media_links_lose_the_whole_query(string input, string expected) => Assert.Equal(expected, Clean(input));
 
     [Theory]
     [InlineData("instagram.com/reel/C1abc/?igsh=abc", "https://instagram.com/reel/C1abc/")]
