@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Aegis.Web.Services;
 
-public sealed record DeviceCodeInfo(string UserCode, string VerificationUri, int ExpiresIn, int Interval);
+public sealed record DeviceCodeInfo(string UserCode, string VerificationUri, int ExpiresIn, int Interval, string? VerificationUriComplete = null);
 
 public sealed record OneDriveStatus(bool Configured, bool Connected);
 
@@ -72,7 +72,8 @@ public sealed class OneDriveService
             root.GetProperty("user_code").GetString()!,
             root.GetProperty("verification_uri").GetString()!,
             expiresIn,
-            root.TryGetProperty("interval", out var i) ? i.GetInt32() : 5);
+            root.TryGetProperty("interval", out var i) ? i.GetInt32() : 5,
+            root.TryGetProperty("verification_uri_complete", out var vc) ? vc.GetString() : null);
     }
 
     /// <summary>Returns "pending", "connected" or an error string prefixed with "error:".</summary>

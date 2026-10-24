@@ -117,7 +117,7 @@ Configuration is read from `appsettings.json` (section `Aegis`) and can be overr
 | `Aegis:Reencode:Nice` | 10 | Linux niceness of ffmpeg (0 = off) so encodes don't starve the web server |
 | `Aegis:FileTtlMinutes` | 15 | how long a finished file stays on the server |
 | `Aegis:LoginAttemptsPerMinute` / `RequestsPerMinute` | 5 / 60 | per-IP rate limits |
-| `Aegis:OneDrive:ClientId` / `TenantId` / `Folder` | *(empty)* / `common` / `Aegis` | optional OneDrive feature |
+| `Aegis:OneDrive:ClientId` / `TenantId` / `Folder` | *(empty)* / `consumers` / `Aegis` | optional OneDrive feature |
 
 #### Optional: "Save to OneDrive"
 
