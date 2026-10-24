@@ -235,7 +235,7 @@ yt-dlp covers many sites, but some only hand videos to a logged-in browser. Chec
 |---|---|---|
 | Instagram reels and posts (public accounts) | ✅ worked | stories (always), private accounts, anything Instagram rate-limits ("login required") |
 | Facebook (public video pages) | ✅ worked for public pages; some URLs fail with "Cannot parse data" | private/friends-only videos, stories |
-| X / Twitter | ✅ public broadcasts (`/i/broadcasts`) worked; tweets with videos normally work | NSFW/sensitive tweets, protected accounts |
+| X / Twitter | ✅ a public NASA tweet with a video and public broadcasts (`/i/broadcasts`) worked; tweets without a video fail with "No video could be found" | NSFW/sensitive tweets, protected accounts |
 | YouTube | ❌ "Sign in to confirm you're not a bot" (Azure's IPs are blocked) | cookies can help, but see the warning below |
 | Vimeo, direct video links, many others | ✅ | rarely |
 
