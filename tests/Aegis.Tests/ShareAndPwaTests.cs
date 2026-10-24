@@ -95,6 +95,43 @@ public class ShareAndPwaTests : IClassFixture<ShareAndPwaTests.Factory>
         Assert.Contains("no-cache", sw.Headers.CacheControl?.ToString());
     }
 
+    // ---------- clear button ----------
+
+    [Fact]
+    public async Task Index_has_accessible_hidden_clear_button_inside_the_url_field()
+    {
+        var html = await (await NoRedirectClient().GetAsync("/")).Content.ReadAsStringAsync();
+        var i = html.IndexOf("id=\"clear-url\"", StringComparison.Ordinal);
+        Assert.True(i > 0, "clear button missing");
+        var tag = html.Substring(html.LastIndexOf('<', i), html.IndexOf('>', i) - html.LastIndexOf('<', i));
+        Assert.Contains("aria-label=\"Clear URL\"", tag);
+        Assert.Contains("type=\"button\"", tag); // must not submit the download form
+        Assert.Contains("hidden", tag);            // hidden while the field is empty
+        Assert.True(html.IndexOf("id=\"url\"", StringComparison.Ordinal) < i); // sits right after the input
+    }
+
+    [Fact]
+    public async Task Clear_script_empties_refocuses_and_drops_the_share_prefill_state()
+    {
+        var c = NoRedirectClient();
+        var js = await (await c.GetAsync("/app.js")).Content.ReadAsStringAsync();
+        Assert.Contains("clear-url", js);
+        Assert.Contains("urlBox.value = ''", js);
+        Assert.Contains("pending = null", js);
+        Assert.Contains("history.replaceState", js);
+        Assert.Contains("urlBox.focus()", js);
+        var css = await (await c.GetAsync("/app.css")).Content.ReadAsStringAsync();
+        Assert.Contains("button.clear", css);
+    }
+
+    [Fact]
+    public async Task Service_worker_cache_version_was_bumped_so_installed_app_refreshes()
+    {
+        var sw = await (await NoRedirectClient().GetAsync("/sw.js")).Content.ReadAsStringAsync();
+        Assert.Contains("aegis-shell-v2", sw);
+        Assert.DoesNotContain("aegis-shell-v1", sw);
+    }
+
     // ---------- /share ----------
 
     [Theory]
