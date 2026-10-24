@@ -49,9 +49,21 @@
       const p = pending; pending = null;
       history.replaceState(null, '', '/');
       $('url').value = p.target;
+      syncClear();
       if (p.auto) $('dl-form').requestSubmit();
     }
   }
+
+  // Small ✕ inside the URL box: shown only while the box has text; clearing also drops any pending share pre-fill
+  // (and a leftover ?target= in the address bar) so a refresh cannot put the old link back.
+  const urlBox = $('url'), clearBtn = $('clear-url');
+  const syncClear = () => show(clearBtn, urlBox.value.length > 0);
+  urlBox.addEventListener('input', syncClear);
+  clearBtn.addEventListener('click', () => {
+    urlBox.value = ''; pending = null; showError('');
+    if (location.search) history.replaceState(null, '', '/');
+    syncClear(); urlBox.focus();
+  });
 
   async function init() {
     try {
