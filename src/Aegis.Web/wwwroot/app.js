@@ -193,11 +193,20 @@
     const d = await api('/onedrive/connect', { method: 'POST' });
     const box = $('od-device'); box.textContent = '';
     const p = document.createElement('div');
-    p.append('Open ');
+    p.append('1. Open ');
     const a = externalLink(d.verificationUri, d.verificationUri);
-    p.append(a, ' (opens in a new tab) and enter code ');
+    p.append(a, ' (opens in a new tab). ');
+    p.append(document.createElement('br'), '2. Enter code ');
     const c = document.createElement('code'); c.textContent = d.userCode;
-    p.append(c, '. Then tap “Save to OneDrive” again.');
+    p.append(c, ' ');
+    const cp = document.createElement('button'); cp.type = 'button'; cp.textContent = 'Copy code';
+    cp.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(d.userCode); cp.textContent = 'Copied'; } catch { cp.textContent = 'Press and hold the code to copy'; }
+    });
+    p.append(cp, document.createElement('br'), '3. Sign in, tap Continue/Allow, then come back here and tap “Save to OneDrive” again.');
+    if (d.verificationUriComplete) {
+      p.append(document.createElement('br'), 'Shortcut: ', externalLink(d.verificationUriComplete, 'open with the code filled in'));
+    }
     box.append(p); show(box, true);
     const wait = async () => {
       const r = await api('/onedrive/poll');

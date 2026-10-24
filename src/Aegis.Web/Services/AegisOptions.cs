@@ -51,8 +51,12 @@ public sealed class OneDriveOptions
     /// <summary>Entra (Azure AD) application (client) id of a public-client app registration. Empty = feature not configured.</summary>
     public string ClientId { get; set; } = "";
 
-    /// <summary>"common" works for both personal and work/school accounts.</summary>
-    public string TenantId { get; set; } = "common";
+    /// <summary>
+    /// "consumers" (default) = personal Microsoft accounts (outlook.com, gmail-based, ...) and uses the dedicated
+    /// https://www.microsoft.com/link sign-in page. "common"/"organizations" sign in work/school accounts via
+    /// https://login.microsoft.com/device; "common" showed an http://localhost response_type error for personal accounts.
+    /// </summary>
+    public string TenantId { get; set; } = "consumers";
 
     /// <summary>Folder in the user's OneDrive that receives uploads.</summary>
     public string Folder { get; set; } = "Aegis";
