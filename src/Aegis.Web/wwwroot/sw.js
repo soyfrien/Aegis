@@ -1,6 +1,6 @@
 // Minimal service worker: makes Aegis installable and lets the app shell open offline.
 // It never touches /api, /share, or anything that is not a plain GET, so downloads and logins always hit the server.
-const CACHE = 'aegis-shell-v6';
+const CACHE = 'aegis-shell-v7';
 const SHELL = ['/', '/app.css', '/app.js', '/icons/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -19,7 +19,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
-  if (url.pathname.startsWith('/api/') || url.pathname === '/share' || url.pathname === '/shortcut' || url.pathname === '/stats' || url.pathname === '/sw.js') return;
+  if (url.pathname.startsWith('/api/') || url.pathname === '/share' || url.pathname === '/shortcut' || url.pathname === '/stats' || url.pathname === '/settings' || url.pathname === '/sw.js') return;
 
   if (req.mode === 'navigate') {
     // Network first; fall back to the cached shell when offline.
