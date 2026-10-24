@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Aegis</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main>
+    <h1>🛡️ Aegis</h1>
+
+    <section id="login" hidden>
+      <form id="login-form" autocomplete="on">
+        <label for="passcode">Passcode</label>
+        <input id="passcode" name="passcode" type="password" autocomplete="current-password" required>
+        <button type="submit">Unlock</button>
+      </form>
+    </section>
+
+    <section id="app" hidden>
+      <form id="dl-form">
+        <label for="url">Video URL</label>
+        <input id="url" name="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off"
+               placeholder="https://www.youtube.com/watch?v=…" required>
+        <button id="dl-btn" type="submit">Download</button>
+      </form>
+
+      <div id="status" hidden>
+        <div id="status-text"></div>
+        <progress id="bar" max="100" value="0"></progress>
+        <div id="job-id" class="muted"></div>
+      </div>
+
+      <div id="result" hidden>
+        <a id="save" class="button" href="#">Save to Files</a>
+        <button id="od-btn" type="button" class="secondary">Save to OneDrive</button>
+        <div id="od-msg" class="muted"></div>
+        <div id="od-device" hidden></div>
+      </div>
+
+      <p id="expires" class="muted"></p>
+      <a class="footer-link" href="/stats">Server stats</a>
+      <button id="logout" type="button" class="link">Lock</button>
+    </section>
+
+    <p id="error" role="alert" hidden></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
