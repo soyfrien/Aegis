@@ -19,7 +19,7 @@ public static class UrlValidator
             return false;
         }
 
-        input = input.Trim();
+        input = UrlNormalizer.AddMissingScheme(input);
         if (input.Length > MaxLength)
         {
             error = "That URL is too long.";
@@ -39,7 +39,8 @@ public static class UrlValidator
             return false;
         }
 
-        uri = parsed;
+        // Everything after the URL (query string, fragment) is dropped unless the host needs a key to identify the content.
+        uri = UrlNormalizer.Normalize(parsed);
         return true;
     }
 

@@ -101,6 +101,21 @@
   const urlBox = $('url'), clearBtn = $('clear-url');
   const syncClear = () => show(clearBtn, urlBox.value.length > 0);
   urlBox.addEventListener('input', syncClear);
+
+  // Show the cleaned link (no tracking parameters / fragment). The server does the same on every request, so this is only
+  // cosmetic: if the call fails the field is left alone. The URL goes in the POST body, never in a query string.
+  let cleanSeq = 0;
+  async function cleanUrlField() {
+    const v = urlBox.value.trim();
+    if (!/[?#]/.test(v)) return;
+    const seq = ++cleanSeq;
+    try {
+      const r = await api('/normalize', { method: 'POST', body: JSON.stringify({ url: v }) });
+      if (seq === cleanSeq && r && r.url && urlBox.value.trim() === v) { urlBox.value = r.url; syncClear(); }
+    } catch { /* leave the field as typed */ }
+  }
+  urlBox.addEventListener('paste', () => setTimeout(cleanUrlField, 0));
+  urlBox.addEventListener('change', cleanUrlField);
   clearBtn.addEventListener('click', () => {
     urlBox.value = ''; pending = null; showError('');
     if (location.search) history.replaceState(null, '', '/');
@@ -138,6 +153,7 @@
     ev.preventDefault(); showError(''); resetJob();
     $('dl-btn').disabled = true;
     try {
+      await cleanUrlField();
       const job = await api('/jobs', { method: 'POST', body: JSON.stringify({ url: $('url').value.trim(), reencode: reencodeBox.value }) });
       jobId = job.id;
       show($('status'), true);

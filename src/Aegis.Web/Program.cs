@@ -120,6 +120,7 @@ app.Use(async (ctx, next) =>
     {
         var link = SharedLink.Extract(q["url"].ToString(), q["text"].ToString(), q["title"].ToString());
         ctx.Response.Headers.CacheControl = "no-store";
+        if (link is not null) link = UrlNormalizer.Normalize(link);
         ctx.Response.Redirect(link is null
             ? "/?shared=none"
             : "/?target=" + Uri.EscapeDataString(link) + (q["auto"].ToString() == "0" ? "" : "&auto=1"));
@@ -236,6 +237,10 @@ secured.MapDelete("/cookies", (HttpContext ctx, CookieStore store, string? site)
     var info = store.Delete(site);
     return Results.Ok(info);
 });
+
+// Lets the page show the cleaned URL right after a paste. The URL travels in the POST body, never in a query string.
+secured.MapPost("/normalize", (JobRequest req) =>
+    Results.Ok(new { url = UrlNormalizer.Normalize(SharedLink.Extract(req.Url) ?? req.Url ?? "") }));
 
 secured.MapGet("/stats", (SystemStatsService stats) => Results.Ok(stats.Collect()));
 
