@@ -13,8 +13,14 @@ public class JobServiceTests : IDisposable
         if (Directory.Exists(_work)) Directory.Delete(_work, true);
     }
 
-    private JobService Create(IDownloader downloader, int ttlMinutes = 15) =>
-        new(downloader, Options.Create(new AegisOptions { WorkDir = _work, FileTtlMinutes = ttlMinutes }), NullLogger<JobService>.Instance);
+    private JobService Create(IDownloader downloader, int ttlMinutes = 15, IReencoder? reencoder = null) =>
+        new(downloader, reencoder ?? new NoReencoder(), Options.Create(new AegisOptions { WorkDir = _work, FileTtlMinutes = ttlMinutes }), NullLogger<JobService>.Instance);
+
+    private sealed class NoReencoder : IReencoder
+    {
+        public Task<ReencodeResult> ProcessAsync(string inputPath, ReencodeMode mode, Action<double, string?> progress, CancellationToken ct) =>
+            throw new InvalidOperationException("The re-encoder must not run when the mode is Off.");
+    }
 
     private static async Task<Job> WaitFinished(Job job)
     {

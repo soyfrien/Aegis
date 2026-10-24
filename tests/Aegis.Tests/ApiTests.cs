@@ -24,7 +24,11 @@ public class ApiTests : IClassFixture<ApiTests.Factory>
             builder.UseSetting("Aegis:WorkDir", Path.Combine(_dir, "work"));
             builder.UseSetting("Aegis:StateDir", Path.Combine(_dir, "state"));
             builder.UseSetting("Aegis:LoginAttemptsPerMinute", "1000");
-            builder.ConfigureServices(s => s.Replace(ServiceDescriptor.Singleton<IDownloader, StubDownloader>()));
+            builder.ConfigureServices(s =>
+            {
+                s.Replace(ServiceDescriptor.Singleton<IDownloader, StubDownloader>());
+                s.Replace(ServiceDescriptor.Singleton<IReencoder, StubReencoder>());
+            });
         }
 
         protected override void Dispose(bool disposing)
@@ -43,6 +47,12 @@ public class ApiTests : IClassFixture<ApiTests.Factory>
             File.WriteAllText(f, "not really a video");
             return Task.FromResult(f);
         }
+    }
+
+    private sealed class StubReencoder : IReencoder
+    {
+        public Task<ReencodeResult> ProcessAsync(string inputPath, ReencodeMode mode, Action<double, string?> progress, CancellationToken ct) =>
+            Task.FromResult(new ReencodeResult(inputPath, ReencodeOutcome.Skipped, "Already iPhone-compatible; no re-encoding needed."));
     }
 
     private HttpClient NewClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = true });
@@ -119,6 +129,48 @@ public class ApiTests : IClassFixture<ApiTests.Factory>
         var r = await c.PostAsync("/api/onedrive/connect", null);
         Assert.Equal(HttpStatusCode.NotImplemented, r.StatusCode);
         Assert.Contains("not set up", await r.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Reencode_option_is_accepted_validated_and_echoed()
+    {
+        var c = NewClient();
+        await Login(c);
+        foreach (var mode in new[] { "off", "auto", "always" })
+        {
+            var r = await c.PostAsJsonAsync("/api/jobs", new { url = "https://example.com/v", reencode = mode });
+            Assert.Equal(HttpStatusCode.Accepted, r.StatusCode);
+            Assert.Equal(mode, (await r.Content.ReadFromJsonAsync<JobView>())!.Reencode);
+        }
+        var none = await c.PostAsJsonAsync("/api/jobs", new { url = "https://example.com/v" });
+        Assert.Equal("off", (await none.Content.ReadFromJsonAsync<JobView>())!.Reencode);
+
+        var bad = await c.PostAsJsonAsync("/api/jobs", new { url = "https://example.com/v", reencode = "x265" });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        Assert.Contains("off, auto, always", await bad.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/fetch", new { url = "https://example.com/v", reencode = "x265" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Fetch_accepts_reencode_and_returns_the_file()
+    {
+        var c = NewClient();
+        await Login(c);
+        var r = await c.PostAsJsonAsync("/api/fetch", new { url = "https://example.com/v", reencode = "auto" });
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        Assert.Equal("attachment", r.Content.Headers.ContentDisposition?.DispositionType);
+    }
+
+    [Fact]
+    public async Task Index_page_offers_the_reencode_select_and_it_is_remembered()
+    {
+        var c = NewClient();
+        var html = await c.GetStringAsync("/");
+        Assert.Contains("id=\"reencode\"", html);
+        Assert.Contains("slow on this small server", html);
+        var js = await c.GetStringAsync("/app.js");
+        Assert.Contains("localStorage", js);
+        Assert.Contains("reencode: reencodeBox.value", js);
     }
 
     [Fact]
