@@ -38,6 +38,13 @@
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
           </button>
         </div>
+        <label for="reencode">Make iPhone-compatible</label>
+        <select id="reencode" name="reencode" aria-describedby="reencode-hint">
+          <option value="off">Off – keep the original file</option>
+          <option value="auto">Auto – only convert if needed</option>
+          <option value="always">Always – re-encode to H.264/AAC MP4</option>
+        </select>
+        <p id="reencode-hint" class="muted hint">Some videos (VP9, AV1, WebM, MKV) won't play on iPhone. Re-encoding fixes that but is slow on this small server: expect several minutes, sometimes longer than the video itself. Videos are capped at 1080p.</p>
         <button id="dl-btn" type="submit">Download</button>
       </form>
 
@@ -54,6 +61,7 @@
         <div id="od-device" hidden></div>
       </div>
 
+      <p id="notice" class="muted" hidden></p>
       <p id="expires" class="muted"></p>
       <a class="footer-link" href="/stats">Server stats</a>
       <a class="footer-link" href="/shortcut">Share-sheet setup</a>

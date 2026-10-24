@@ -21,6 +21,17 @@
     return body;
   }
 
+  // ---- Re-encode option (remembered on this device; also applies to share-sheet auto-start) ----
+  const reencodeBox = $('reencode');
+  const REENCODE_KEY = 'aegis.reencode';
+  try {
+    const saved = localStorage.getItem(REENCODE_KEY);
+    if (['off', 'auto', 'always'].includes(saved)) reencodeBox.value = saved;
+  } catch { /* storage blocked: default stays Off */ }
+  reencodeBox.addEventListener('change', () => {
+    try { localStorage.setItem(REENCODE_KEY, reencodeBox.value); } catch { /* ignore */ }
+  });
+
   // ---- Share-sheet / deep-link handling -------------------------------------------------
   // /share?url=… on the server redirects to /?target=<link>&auto=1. We keep that target in memory (and in the URL until it is used)
   // so it survives the login form, then pre-fill the box and, with auto=1, start the download.
@@ -89,14 +100,14 @@
 
   function resetJob() {
     clearTimeout(pollTimer); jobId = null;
-    show($('status'), false); show($('result'), false); $('expires').textContent = '';
+    show($('status'), false); show($('result'), false); $('expires').textContent = ''; $('notice').textContent = ''; show($('notice'), false);
   }
 
   $('dl-form').addEventListener('submit', async (ev) => {
     ev.preventDefault(); showError(''); resetJob();
     $('dl-btn').disabled = true;
     try {
-      const job = await api('/jobs', { method: 'POST', body: JSON.stringify({ url: $('url').value.trim() }) });
+      const job = await api('/jobs', { method: 'POST', body: JSON.stringify({ url: $('url').value.trim(), reencode: reencodeBox.value }) });
       jobId = job.id;
       show($('status'), true);
       render(job);
@@ -125,6 +136,7 @@
       $('dl-btn').disabled = false;
       const mb = job.fileSize ? ` (${(job.fileSize / 1048576).toFixed(1)} MB)` : '';
       $('status-text').textContent = 'Ready: ' + job.fileName + mb;
+      $('notice').textContent = job.notice || ''; show($('notice'), !!job.notice);
       $('save').href = `/api/jobs/${job.id}/file`;
       show($('result'), true);
       if (job.expiresAt) $('expires').textContent = 'The server deletes this file at ' + new Date(job.expiresAt).toLocaleTimeString() + '.';

@@ -41,13 +41,14 @@
     const d = s.downloads;
     fill($('downloads'), [
       ['Jobs total', d.total], ['Succeeded', d.succeeded], ['Failed', d.failed], ['Active', d.active], ['Bytes served', bytes(d.bytesServed)],
+      ['Re-encoded', d.reencoded], ['Re-encode failed', d.reencodeFailed], ['Re-encode time', dur(d.reencodeSeconds)],
     ]);
     const ul = $('recent'); ul.textContent = '';
     if (!d.recent.length) { const li = document.createElement('li'); li.textContent = 'No downloads yet.'; ul.append(li); }
     for (const j of d.recent) {
       const li = document.createElement('li');
       const st = document.createElement('span'); st.className = j.state === 'done' ? 'ok' : 'bad'; st.textContent = j.state;
-      li.append(st, ` · ${j.host} · ${bytes(j.fileSize)} · ${dur(j.durationSeconds)} · ${new Date(j.startedAt).toLocaleTimeString()}`);
+      li.append(st, ` · ${j.host}${j.reencode && j.reencode !== 'none' ? ' · ' + j.reencode : ''} · ${bytes(j.fileSize)} · ${dur(j.durationSeconds)} · ${new Date(j.startedAt).toLocaleTimeString()}`);
       if (j.error) { const e = document.createElement('div'); e.className = 'muted'; e.textContent = j.error; li.append(e); }
       ul.append(li);
     }

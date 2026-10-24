@@ -45,3 +45,9 @@ button.clear { position:absolute; top:50%; right:2px; transform:translateY(-50%)
 button.clear svg { width:14px; height:14px; padding:4px; box-sizing:content-box; border-radius:50%; background:#2b3556; }
 button.clear:active svg, button.clear:hover svg { background:#3a4670; color:var(--fg); }
 button.clear[hidden] { display:none; }
+
+/* Re-encode option */
+select { width:100%; box-sizing:border-box; padding:12px; margin-top:6px; font-size:16px; color:var(--fg); background:#0e1427; border:1px solid #2b3556; border-radius:10px; }
+.hint { font-size:.85rem; margin:6px 0 12px; }
+label[for="reencode"] { margin-top:14px; }
+#dl-form select { margin-top:0; }
