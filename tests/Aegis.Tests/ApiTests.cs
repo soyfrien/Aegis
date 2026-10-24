@@ -167,7 +167,7 @@ public class ApiTests : IClassFixture<ApiTests.Factory>
         var c = NewClient();
         var html = await c.GetStringAsync("/");
         Assert.Contains("id=\"reencode\"", html);
-        Assert.Contains("slow on this small server", html);
+        Assert.Contains("a fast setting for this small server", html);
         var js = await c.GetStringAsync("/app.js");
         Assert.Contains("localStorage", js);
         Assert.Contains("reencode: reencodeBox.value", js);
