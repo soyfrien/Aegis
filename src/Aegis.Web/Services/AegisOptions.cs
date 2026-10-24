@@ -22,7 +22,11 @@ public sealed class AegisOptions
     /// <summary>Directory for persistent state (data-protection keys, OneDrive token). Empty means a folder under the user profile.</summary>
     public string StateDir { get; set; } = "";
 
-    /// <summary>Optional Netscape-format cookies.txt exported from your own browser; passed to yt-dlp via --cookies (helps with YouTube bot checks).</summary>
+    /// <summary>
+    /// Optional Netscape-format cookies.txt on the server (older setting). It is read as a fallback until cookies are uploaded on the
+    /// Settings page (which stores them in StateDir/cookies.txt and supersedes this file). Either way yt-dlp only receives the cookies
+    /// that belong to the site being downloaded.
+    /// </summary>
     public string CookiesFile { get; set; } = "";
 
     public int MaxConcurrentJobs { get; set; } = 2;

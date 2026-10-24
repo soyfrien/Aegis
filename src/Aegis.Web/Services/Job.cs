@@ -24,6 +24,8 @@ public sealed class Job
     public string? FileName { get; private set; }
     public long? FileSize { get; private set; }
     public string? Error { get; private set; }
+    /// <summary>Why it failed, when known: "login_required", "rate_limited", "unsupported". The UI uses it to offer the Settings page.</summary>
+    public string? ErrorCode { get; private set; }
     public DateTimeOffset? FinishedAt { get; private set; }
 
     /// <summary>What the re-encode step did: "none" (not requested), "skipped", "remuxed", "audio", "reencoded" or "failed".</summary>
@@ -64,12 +66,13 @@ public sealed class Job
         }
     }
 
-    public void SetFailed(string error)
+    public void SetFailed(string error, string? code = null)
     {
         lock (_lock)
         {
             State = JobState.Failed;
             Error = error;
+            ErrorCode = code;
             Message = "Failed";
             FinishedAt = DateTimeOffset.UtcNow;
         }
@@ -104,7 +107,7 @@ public sealed class Job
             DateTimeOffset? expires = FinishedAt?.Add(ttl);
             return new JobView(Id, State.ToString().ToLowerInvariant(), Math.Round(Percent, 1), Message, FileName, FileSize,
                 Error, expires, OneDrive.ToString().ToLowerInvariant(), OneDriveMessage, OneDriveUrl,
-                Reencode.ToString().ToLowerInvariant(), ReencodeResult, Notice);
+                Reencode.ToString().ToLowerInvariant(), ReencodeResult, Notice, ErrorCode);
         }
     }
 }
@@ -124,4 +127,5 @@ public sealed record JobView(
     string? OneDriveUrl,
     string Reencode,
     string ReencodeResult,
-    string? Notice);
+    string? Notice,
+    string? ErrorCode = null);

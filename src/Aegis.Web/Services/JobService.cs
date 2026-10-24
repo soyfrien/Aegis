@@ -139,7 +139,7 @@ public sealed class JobService
         }
         catch (DownloadException ex)
         {
-            job.SetFailed(ex.Message);
+            job.SetFailed(ex.Message, ex.Code);
             DeleteDirectory(job.Directory);
             return;
         }
