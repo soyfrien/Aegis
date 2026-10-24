@@ -16,6 +16,7 @@ This README is the single source of truth for understanding, setting up, and con
    - [Running the Project](#running-the-project)
    - [Deployment](#deployment)
    - [Share sheet, Home Screen app and Shortcuts (iPhone)](#share-sheet-home-screen-app-and-shortcuts-iphone)
+   - [URL cleanup (query strings and tracking parameters)](#url-cleanup-query-strings-and-tracking-parameters)
    - [iPhone-compatible re-encoding](#iphone-compatible-re-encoding)
    - [Site logins (cookies): Instagram, Facebook, X, YouTube](#site-logins-cookies-instagram-facebook-x-youtube)
 4. [How to Contribute (Quick Path)](#how-to-contribute-quick-path)
@@ -205,6 +206,34 @@ The token cannot reach OneDrive, stats or any other endpoint. `url` may also be 
 curl -H "X-Aegis-Token: $AEGIS_API_TOKEN" -H 'Content-Type: application/json' \
      -d '{"url":"https://example.com/video.mp4"}' -OJ https://<host>/api/fetch
 ```
+
+### URL cleanup (query strings and tracking parameters)
+
+Aegis ignores everything after the URL that does not identify the video: the fragment (`#…`) and the query string
+(`?igsh=`, `?utm_*`, `?fbclid=`, `?si=`, `?s=20`, `?is_from_webapp=`, …). This happens on the server for every entry point
+(`POST /api/jobs`, `POST /api/fetch`, `/share`), so the downloader only ever sees the cleaned link, and the page shows the cleaned
+link in the URL box right after you paste it (via `POST /api/normalize`, login cookie only; the URL travels in the body).
+A link without `https://` (for example `instagram.com/reel/abc/?igsh=1`) is accepted too. Only the host is kept in the job log and the stats, as before.
+
+The default is **strip the whole query**. A small allowlist in `UrlNormalizer` keeps just the keys a link needs to point at its content;
+everything else is dropped:
+
+| Host(s) | Path | Query keys kept |
+|---|---|---|
+| `youtube.com` (also `m.`, `music.`, `youtube-nocookie.com`) | `/watch` | `v` (so `&list=`, `&t=`, `&si=`, `&index=` are dropped; one video, not the playlist) |
+| `youtube.com` | `/playlist` | `list` |
+| `facebook.com` / `fb.com` (also `m.`, `web.`) | `/watch`, `/watch/live` | `v` |
+| `facebook.com` | `/video.php` | `v` |
+| `facebook.com` | `/story.php`, `/permalink.php` | `story_fbid`, `id` |
+| `facebook.com` | `/photo.php`, `/photo` | `fbid` |
+| `facebook.com` | `/profile.php` | `id` |
+| `vimeo.com` (incl. `player.vimeo.com`) | any | `h` (privacy hash of unlisted videos) |
+| `bilibili.com` | `/video/…` | `p` (part number) |
+
+Everything else loses its query, including `youtu.be`, `fb.watch`, `instagram.com`, `x.com`/`twitter.com`, `tiktok.com`, `dailymotion.com`, `reddit.com` and `twitch.tv`.
+One exception to "strip all": a **direct file or stream link** (path ends in `.mp4`, `.m3u8`, `.mpd`, `.webm`, `.mp3`, …) keeps its query
+except for well-known tracking parameters (`utm_*`, `fbclid`, `gclid`, `igsh`, `si`, …), because such links are often signed
+(`?token=…&expires=…`) and would stop working without them. To support another site that needs a key, add a rule to `UrlNormalizer` and a test.
 
 ### iPhone-compatible re-encoding
 
