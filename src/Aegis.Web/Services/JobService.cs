@@ -71,6 +71,25 @@ public sealed class JobService
 
     public Job? Get(string id) => _jobs.TryGetValue(id, out var job) ? job : null;
 
+    /// <summary>Waits until the job is Done or Failed (or the token is cancelled / the timeout passes) and returns it.</summary>
+    public async Task<Job> WaitAsync(Job job, TimeSpan timeout, CancellationToken ct)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(timeout);
+        try
+        {
+            while (job.State is JobState.Queued or JobState.Running)
+                await Task.Delay(250, timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // timed out waiting; caller inspects job.State
+        }
+        return job;
+    }
+
+    public TimeSpan JobTimeout => TimeSpan.FromMinutes(Math.Max(1, _options.JobTimeoutMinutes));
+
     /// <summary>Creates a job and starts it in the background. Returns null when too many jobs are tracked.</summary>
     public Job? Start(string url)
     {

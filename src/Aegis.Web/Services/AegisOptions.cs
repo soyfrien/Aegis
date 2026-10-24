@@ -8,6 +8,9 @@ public sealed class AegisOptions
     /// <summary>Shared passcode. Populated from the AEGIS_PASSCODE environment variable, never from files in the repo.</summary>
     public string Passcode { get; set; } = "";
 
+    /// <summary>Optional long-lived token for headless clients (iOS Shortcuts), sent as the X-Aegis-Token header. Populated from AEGIS_API_TOKEN; empty = disabled.</summary>
+    public string ApiToken { get; set; } = "";
+
     public string YtDlpPath { get; set; } = "yt-dlp";
 
     /// <summary>Optional directory (or binary path) containing ffmpeg; empty means "use PATH".</summary>
