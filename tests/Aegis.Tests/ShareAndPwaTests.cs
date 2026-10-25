@@ -128,7 +128,7 @@ public class ShareAndPwaTests : IClassFixture<ShareAndPwaTests.Factory>
     public async Task Service_worker_cache_version_was_bumped_so_installed_app_refreshes()
     {
         var sw = await (await NoRedirectClient().GetAsync("/sw.js")).Content.ReadAsStringAsync();
-        Assert.Contains("aegis-shell-v8", sw);
+        Assert.Contains("aegis-shell-v10", sw);
         Assert.DoesNotContain("aegis-shell-v3", sw);
     }
 
