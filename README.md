@@ -231,8 +231,9 @@ everything else is dropped:
 | `bilibili.com` | `/video/…` | `p` (part number) |
 
 Everything else loses its query, including `youtu.be`, `fb.watch`, `instagram.com`, `x.com`/`twitter.com`, `tiktok.com`, `dailymotion.com`, `reddit.com` and `twitch.tv`.
-Direct file and stream links (path ends in `.mp4`, `.m3u8`, `.mpd`, `.webm`, `.mp3`, …) lose their query and fragment too, like everything else.
-**Signed CDN links that need a token in the query (`?token=…&expires=…`) will therefore no longer work.** To support another site that needs a key, add a rule to `UrlNormalizer` and a test.
+One exception to "strip all": a **direct file or stream link** (path ends in `.mp4`, `.m3u8`, `.mpd`, `.webm`, `.mp3`, …) keeps its query
+except for well-known tracking parameters (`utm_*`, `fbclid`, `gclid`, `igsh`, `si`, …), because such links are often signed
+(`?token=…&expires=…`) and would stop working without them. To support another site that needs a key, add a rule to `UrlNormalizer` and a test.
 
 ### iPhone-compatible re-encoding
 
