@@ -1,5 +1,5 @@
 # Caddy obtains and renews the Let's Encrypt certificate automatically.
-aegis-lw.southcentralus.cloudapp.azure.com {
+aegis.ppdac.ltd {
 	reverse_proxy 127.0.0.1:5000 {
 		flush_interval -1
 		transport http {
@@ -11,3 +11,9 @@ aegis-lw.southcentralus.cloudapp.azure.com {
 		-Server
 	}
 }
+
+# Old Azure hostname permanently redirects to the custom domain.
+aegis-lw.southcentralus.cloudapp.azure.com {
+	redir https://aegis.ppdac.ltd{uri} permanent
+}
+import /etc/caddy/conf.d/*.caddy
