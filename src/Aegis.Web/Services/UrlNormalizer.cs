@@ -64,10 +64,17 @@ public static partial class UrlNormalizer
     [GeneratedRegex(@"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:\d{1,5})?([/?#].*)?$", RegexOptions.IgnoreCase)]
     private static partial Regex SchemelessRegex();
 
+    [GeneratedRegex(@"^[A-Za-z0-9_-]{11}$")]
+    private static partial Regex YouTubeIdRegex();
+
+    /// <summary>True for a bare 11-character YouTube video ID such as "0F6nSpETZGg".</summary>
+    public static bool IsYouTubeId(string input) => YouTubeIdRegex().IsMatch(input.Trim());
+
     /// <summary>"instagram.com/reel/x" (no scheme) -> "https://instagram.com/reel/x". Anything else is returned unchanged.</summary>
     public static string AddMissingScheme(string input)
     {
         var s = input.Trim();
+        if (YouTubeIdRegex().IsMatch(s)) return "https://www.youtube.com/watch?v=" + s;
         return !s.Contains("://") && SchemelessRegex().IsMatch(s) ? "https://" + s : s;
     }
 
