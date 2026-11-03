@@ -144,4 +144,23 @@ public class UrlNormalizerTests
         Assert.Contains(rules, r => r.Host.Contains("youtube.com") && r.Path == "/playlist" && r.Keys.SequenceEqual(["list"]));
         Assert.Contains(rules, r => r.Host.Contains("facebook.com") && r.Path == "/story.php" && r.Keys.SequenceEqual(["story_fbid", "id"]));
     }
+
+    [Theory]
+    [InlineData("0F6nSpETZGg", "https://www.youtube.com/watch?v=0F6nSpETZGg")]
+    [InlineData("  0F6nSpETZGg ", "https://www.youtube.com/watch?v=0F6nSpETZGg")]
+    [InlineData("abc_DEF-123", "https://www.youtube.com/watch?v=abc_DEF-123")]
+    [InlineData("https://www.youtube.com/watch?v=0F6nSpETZGg", "https://www.youtube.com/watch?v=0F6nSpETZGg")]
+    [InlineData("https://youtu.be/0F6nSpETZGg?si=x", "https://youtu.be/0F6nSpETZGg")]
+    [InlineData("https://www.youtube.com/shorts/0F6nSpETZGg", "https://www.youtube.com/shorts/0F6nSpETZGg")]
+    public void Bare_youtube_ids_become_watch_urls(string input, string expected)
+    {
+        Assert.Equal(expected, Clean(input));
+        Assert.Equal(expected, UrlNormalizer.Normalize(input));
+    }
+
+    [Theory]
+    [InlineData("0F6nSpETZG")]
+    [InlineData("0F6nSpETZGgx")]
+    [InlineData("0F6nSpET$Gg")]
+    public void Not_an_id_is_not_rewritten(string input) => Assert.False(UrlNormalizer.IsYouTubeId(input));
 }
